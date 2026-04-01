@@ -9,7 +9,7 @@ import streamlit as st
 from parser import parse_form, get_form_id
 from submitter import submit_form
 
-st.set_page_config(page_title="Google Form Auto Filler", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="Tool của a zai Hàn Quốc", page_icon="🤖", layout="centered")
 
 st.markdown("""
 <style>
@@ -121,7 +121,7 @@ def _render_sidebar():
             st.markdown('<div class="avatar-container"><div style="color:#a78bfa;font-size:3rem">👤</div></div>',
                         unsafe_allow_html=True)
 
-        st.markdown('<div class="avatar-name">🤖 Form Auto Filler</div>', unsafe_allow_html=True)
+        st.markdown('<div class="avatar-name">🤖 Tool của a zai Hàn Quốc</div>', unsafe_allow_html=True)
         st.divider()
 
         # Nhạc nền autoplay
@@ -169,7 +169,7 @@ def page_url():
     st.markdown("""
     <div style='text-align:center; padding: 1rem 0 0.5rem 0;'>
         <span style='font-size:3rem;'>🤖</span>
-        <h1 style='margin:0; font-size:2.2rem;'>Google Form Auto Filler</h1>
+        <h1 style='margin:0; font-size:2.2rem;'>Tool của a zai Hàn Quốc</h1>
         <p style='color:#a78bfa; margin-top:0.3rem;'>Tự động điền và submit Google Form theo tỉ lệ tùy chỉnh</p>
     </div>
     """, unsafe_allow_html=True)
