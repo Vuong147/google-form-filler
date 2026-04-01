@@ -7,7 +7,7 @@ import time
 from config import configure_ratios, get_run_settings
 from parser import get_form_id, parse_form
 from reporter import generate_report
-from submitter import submit_form
+from submitter import submit_form, precompute_answers
 
 
 def _load_proxies() -> list:
@@ -134,6 +134,8 @@ def main():
     print("\n" + "═" * 55)
     print("   🚀 ĐANG CHẠY...")
     print("═" * 55 + "\n")
+
+    precompute_answers(configured, n_submissions)
 
     results = []
     start_time = time.time()

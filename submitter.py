@@ -42,19 +42,59 @@ def is_success(html: str) -> bool:
     return True
 
 
+def precompute_answers(questions: list, n: int) -> None:
+    """Pre-compute exact answer distribution across n submissions.
+    Modifies questions in-place (adds '_precomputed' key).
+    Guarantees ratio-exact distribution instead of pure random.
+    """
+    for q in questions:
+        q_type = q.get("type")
+        options = q.get("options", [])
+        ratios = q.get("ratios", [])
+
+        if q_type in ("multiple_choice", "dropdown", "linear_scale") and options and ratios:
+            raw_counts = [r * n for r in ratios]
+            floors = [int(c) for c in raw_counts]
+            deficit = n - sum(floors)
+            remainders = sorted(
+                range(len(raw_counts)),
+                key=lambda k: raw_counts[k] - floors[k],
+                reverse=True
+            )
+            for k in remainders[:deficit]:
+                floors[k] += 1
+            pool = []
+            for opt, cnt in zip(options, floors):
+                pool.extend([opt] * cnt)
+            random.shuffle(pool)
+            q["_precomputed"] = pool
+
+        elif q_type == "checkbox" and options and ratios:
+            q["_precomputed"] = [
+                [opt for opt, prob in zip(options, ratios) if random.random() < prob] or [random.choice(options)]
+                for _ in range(n)
+            ]
+
+
 def pick_answer(question: dict, idx: int = 0):
     q_type = question.get("type")
     options = question.get("options", [])
     ratios = question.get("ratios", [])
     answers = question.get("answers", [])
     per_submission = question.get("per_submission", False)
+    precomputed = question.get("_precomputed")
 
     if q_type in ("multiple_choice", "dropdown", "linear_scale"):
+        if precomputed:
+            return precomputed[idx % len(precomputed)]
         if not options or not ratios:
             return None
         return random.choices(options, weights=ratios, k=1)[0]
 
     elif q_type == "checkbox":
+        if precomputed:
+            item = precomputed[idx % len(precomputed)]
+            return item if isinstance(item, list) else [item]
         if not options or not ratios:
             return []
         selected = [opt for opt, prob in zip(options, ratios) if random.random() < prob]

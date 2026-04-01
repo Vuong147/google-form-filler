@@ -7,7 +7,7 @@ import time
 import streamlit as st
 
 from parser import parse_form, get_form_id
-from submitter import submit_form
+from submitter import submit_form, precompute_answers
 
 st.set_page_config(page_title="Tool của a zai Hàn Quốc", page_icon="🤖", layout="centered")
 
@@ -374,6 +374,8 @@ def page_run():
     configured = st.session_state.configured
     form_id = st.session_state.form_id
     proxies = st.session_state.proxies
+
+    precompute_answers(configured, n)
 
     schedule = None
     if st.session_state.timing_mode == "window":
