@@ -117,8 +117,12 @@ def pick_answer(question: dict, idx: int = 0):
     return None
 
 
-def build_payload(questions: list, idx: int = 0) -> tuple:
-    data = {}
+def build_payload(questions: list, idx: int = 0, fbzx: str = None) -> tuple:
+    data = {"fvv": "1", "pageHistory": "0"}
+    if fbzx:
+        data["fbzx"] = fbzx
+    else:
+        data["fbzx"] = str(random.randint(-9_000_000_000_000_000_000, 9_000_000_000_000_000_000))
     chosen = {}
 
     for q in questions:
@@ -143,9 +147,10 @@ def build_payload(questions: list, idx: int = 0) -> tuple:
 
 
 def submit_form(form_id: str, questions: list, timeout: int = 15,
-                submission_index: int = 0, proxy: str = None) -> tuple:
+                submission_index: int = 0, proxy: str = None,
+                fbzx: str = None) -> tuple:
     url = SUBMIT_URL_TEMPLATE.format(form_id=form_id)
-    payload, chosen = build_payload(questions, submission_index)
+    payload, chosen = build_payload(questions, submission_index, fbzx=fbzx)
 
     proxies = None
     if proxy:

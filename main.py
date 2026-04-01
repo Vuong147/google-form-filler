@@ -81,11 +81,11 @@ def main():
         else:
             url += "viewform"
 
-    print("\n⏳ Đang phân tích form (mở trình duyệt ẩn)...")
+    print("\n⏳ Đang phân tích form...")
 
     try:
-        questions = parse_form(url)
-        form_id = get_form_id(url)
+        questions, published_id, fbzx = parse_form(url)
+        form_id = published_id or get_form_id(url)
     except Exception as e:
         print(f"\n❌ Lỗi khi phân tích form: {e}")
         sys.exit(1)
@@ -151,7 +151,7 @@ def main():
 
         proxy = proxies[(i - 1) % len(proxies)] if use_proxy and proxies else None
         success, answers = submit_form(
-            form_id, configured, submission_index=i - 1, proxy=proxy
+            form_id, configured, submission_index=i - 1, proxy=proxy, fbzx=fbzx
         )
         results.append({"success": success, "answers": answers})
 

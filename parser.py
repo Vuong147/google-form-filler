@@ -35,13 +35,29 @@ def get_form_id(url: str) -> str:
     raise ValueError("Không tìm được Form ID từ URL.")
 
 
-def parse_form(url: str) -> list:
+def parse_form(url: str) -> tuple:
+    """Returns (questions, form_id, fbzx)"""
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=15)
+        resp = requests.get(url, headers=HEADERS, timeout=15, allow_redirects=True)
         resp.raise_for_status()
         source = resp.text
     except requests.exceptions.RequestException as e:
         raise ValueError(f"Không thể tải form: {e}")
+
+    # Extract published form_id from final URL (after redirect)
+    final_url = resp.url
+    published_id = None
+    m = re.search(r"/forms/d/e/([a-zA-Z0-9_-]+)/", final_url)
+    if m:
+        published_id = m.group(1)
+
+    # Extract fbzx token
+    fbzx = None
+    for pattern in [r'data-fbzx="([^"]+)"', r'"fbzx":"([^"]+)"', r"'fbzx'\s*:\s*'([^']+)'"]:
+        m2 = re.search(pattern, source)
+        if m2:
+            fbzx = m2.group(1)
+            break
 
     match = re.search(r"FB_PUBLIC_LOAD_DATA_ = (.*?);</script>", source, re.DOTALL)
     if not match:
@@ -136,4 +152,4 @@ def parse_form(url: str) -> list:
     if not questions:
         raise ValueError("Không tìm thấy câu hỏi nào trong form.")
 
-    return questions
+    return questions, published_id, fbzx

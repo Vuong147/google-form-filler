@@ -195,10 +195,11 @@ def page_url():
                 u = url.strip().rstrip("/")
                 if "viewform" not in u and "formResponse" not in u:
                     u += "/viewform"
-                questions = parse_form(u)
-                form_id = get_form_id(u)
+                questions, published_id, fbzx = parse_form(u)
+                form_id = published_id or get_form_id(u)
                 st.session_state.questions = questions
                 st.session_state.form_id = form_id
+                st.session_state.fbzx = fbzx
                 st.session_state.url = u
                 st.session_state.step = 1
                 st.rerun()
@@ -415,6 +416,7 @@ def page_run():
     configured = st.session_state.configured
     form_id = st.session_state.form_id
     proxies = st.session_state.proxies
+    fbzx = st.session_state.get("fbzx")
 
     precompute_answers(configured, n)
 
@@ -439,7 +441,7 @@ def page_run():
                 time.sleep(wait)
 
         proxy = proxies[(i - 1) % len(proxies)] if proxies else None
-        success, answers = submit_form(form_id, configured, submission_index=i - 1, proxy=proxy)
+        success, answers = submit_form(form_id, configured, submission_index=i - 1, proxy=proxy, fbzx=fbzx)
         results.append({"success": success, "answers": answers})
 
         icon = "✅" if success else "❌"
