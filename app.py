@@ -1,4 +1,5 @@
 import datetime
+import os
 import random
 import time
 
@@ -8,6 +9,76 @@ from parser import parse_form, get_form_id
 from submitter import submit_form
 
 st.set_page_config(page_title="Google Form Auto Filler", page_icon="🤖", layout="centered")
+
+st.markdown("""
+<style>
+    /* Nền gradient toàn trang */
+    .stApp {
+        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    }
+    /* Tiêu đề chính */
+    h1 { color: #e0c3fc !important; letter-spacing: 1px; }
+    h2, h3 { color: #a78bfa !important; }
+    /* Input box */
+    .stTextInput > div > div > input {
+        background: rgba(255,255,255,0.08);
+        color: #fff;
+        border: 1px solid #7c3aed;
+        border-radius: 10px;
+    }
+    /* Nút bấm chính */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(90deg, #7c3aed, #a855f7);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: bold;
+        padding: 0.5rem 2rem;
+        transition: 0.3s;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(90deg, #6d28d9, #9333ea);
+        transform: scale(1.03);
+    }
+    /* Card expander */
+    .streamlit-expanderHeader {
+        background: rgba(124,58,237,0.15);
+        border-radius: 8px;
+        color: #e0c3fc !important;
+    }
+    /* Divider */
+    hr { border-color: #7c3aed44; }
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: rgba(15,12,41,0.95);
+        border-right: 1px solid #7c3aed44;
+    }
+    /* Ảnh avatar tòn đẹp */
+    .avatar-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1.5rem 0 1rem 0;
+    }
+    .avatar-container img {
+        border-radius: 50%;
+        border: 3px solid #a855f7;
+        box-shadow: 0 0 20px #7c3aed88;
+        width: 120px;
+        height: 120px;
+        object-fit: cover;
+    }
+    .avatar-name {
+        color: #e0c3fc;
+        font-size: 1rem;
+        font-weight: 600;
+        margin-top: 0.6rem;
+        text-align: center;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 
 SUPPORTED_TYPES = ("multiple_choice", "dropdown", "checkbox", "linear_scale",
                    "short_text", "paragraph", "date", "time")
@@ -30,6 +101,46 @@ def _init():
 _init()
 
 
+# ── Sidebar: ảnh + nhạc ────────────────────────────────────────────────────────
+def _render_sidebar():
+    with st.sidebar:
+        # Ảnh avatar
+        avatar_extensions = ["jpg", "jpeg", "png", "webp"]
+        avatar_path = None
+        for ext in avatar_extensions:
+            p = os.path.join(ASSETS_DIR, f"avatar.{ext}")
+            if os.path.exists(p):
+                avatar_path = p
+                break
+
+        if avatar_path:
+            st.markdown('<div class="avatar-container">', unsafe_allow_html=True)
+            st.image(avatar_path, width=120)
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="avatar-container"><div style="color:#a78bfa;font-size:3rem">👤</div></div>',
+                        unsafe_allow_html=True)
+
+        st.markdown('<div class="avatar-name">🤖 Form Auto Filler</div>', unsafe_allow_html=True)
+        st.divider()
+
+        # Nhạc nền
+        music_path = os.path.join(ASSETS_DIR, "music.mp3")
+        if os.path.exists(music_path):
+            st.markdown("**🎵 Nhạc nền**")
+            with open(music_path, "rb") as f:
+                st.audio(f.read(), format="audio/mp3")
+        else:
+            st.caption("⚠️ Chưa có file nhạc.\nThêm `assets/music.mp3` vào project.")
+
+        st.divider()
+        # Bước hiện tại
+        steps = ["Nhập URL", "Cài đặt câu hỏi", "Cài đặt chạy", "Đang chạy"]
+        for idx, label in enumerate(steps):
+            icon = "✅" if idx < st.session_state.step else ("🔵" if idx == st.session_state.step else "⚪")
+            st.markdown(f"{icon} {label}")
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _schedule(n, ws, we):
     now = datetime.datetime.now()
@@ -49,8 +160,13 @@ def _schedule(n, ws, we):
 
 # ── Step 0: URL ───────────────────────────────────────────────────────────────
 def page_url():
-    st.title("🤖 Google Form Auto Filler")
-    st.markdown("Tự động điền và submit Google Form theo tỉ lệ tùy chỉnh.")
+    st.markdown("""
+    <div style='text-align:center; padding: 1rem 0 0.5rem 0;'>
+        <span style='font-size:3rem;'>🤖</span>
+        <h1 style='margin:0; font-size:2.2rem;'>Google Form Auto Filler</h1>
+        <p style='color:#a78bfa; margin-top:0.3rem;'>Tự động điền và submit Google Form theo tỉ lệ tùy chỉnh</p>
+    </div>
+    """, unsafe_allow_html=True)
     st.divider()
 
     url = st.text_input("🔗 Nhập URL Google Form",
@@ -308,5 +424,6 @@ def page_run():
 
 
 # ── Router ────────────────────────────────────────────────────────────────────
+_render_sidebar()
 pages = {0: page_url, 1: page_configure, 2: page_settings, 3: page_run}
 pages[st.session_state.step]()
