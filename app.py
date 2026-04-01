@@ -220,22 +220,26 @@ def page_configure():
             st.caption(f"Loại: `{q['type']}`")
 
             if q["type"] in ("multiple_choice", "dropdown", "linear_scale") and q["options"]:
-                st.write("Tỉ lệ cho từng lựa chọn (%):")
+                st.write("Trọng số cho từng lựa chọn (để 0 = không chọn):")
                 cols = st.columns(min(len(q["options"]), 4))
                 ratios = []
-                default = round(100.0 / len(q["options"]), 1)
+                n_opts = len(q["options"])
                 for j, opt in enumerate(q["options"]):
                     with cols[j % 4]:
-                        v = st.number_input(opt, min_value=0.0, max_value=100.0,
-                                            value=default, step=1.0, key=f"q{i}_o{j}")
+                        v = st.number_input(opt, min_value=0.0, max_value=10000.0,
+                                            value=round(100.0 / n_opts, 1),
+                                            step=1.0, key=f"q{i}_o{j}")
                         ratios.append(v)
                 total = sum(ratios)
                 if total == 0:
-                    st.warning("⚠️ Tổng tỉ lệ phải > 0")
+                    st.warning("⚠️ Tổng trọng số phải > 0")
                     valid = False
                 else:
                     cfg["ratios"] = [v / total for v in ratios]
-                    st.caption(f"Tổng: {total:.0f}% → tự chuẩn hóa")
+                    pct_cols = st.columns(min(len(q["options"]), 4))
+                    for j, (opt, r) in enumerate(zip(q["options"], ratios)):
+                        with pct_cols[j % 4]:
+                            st.caption(f"→ **{r/total*100:.1f}%**")
 
             elif q["type"] == "checkbox" and q["options"]:
                 st.write("Xác suất chọn mỗi ô (%):")
