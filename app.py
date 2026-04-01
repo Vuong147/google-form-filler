@@ -62,11 +62,10 @@ st.markdown("""
         padding: 1.5rem 0 1rem 0;
     }
     .avatar-container img {
-        border-radius: 50%;
+        border-radius: 16px;
         border: 3px solid #a855f7;
         box-shadow: 0 0 20px #7c3aed88;
-        width: 120px;
-        height: 120px;
+        width: 100%;
         object-fit: cover;
     }
     .avatar-name {
@@ -116,7 +115,7 @@ def _render_sidebar():
 
         if avatar_path:
             st.markdown('<div class="avatar-container">', unsafe_allow_html=True)
-            st.image(avatar_path, width=120)
+            st.image(avatar_path, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.markdown('<div class="avatar-container"><div style="color:#a78bfa;font-size:3rem">👤</div></div>',
