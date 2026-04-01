@@ -1,5 +1,6 @@
 import base64
 import datetime
+import math
 import os
 import random
 import time
@@ -148,6 +149,16 @@ def _render_sidebar():
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+def _min_n_for_exact(ratios: list) -> int:
+    """Return minimum N so that N*ratio[i] is integer for all i."""
+    from fractions import Fraction
+    lcm = 1
+    for r in ratios:
+        frac = Fraction(r).limit_denominator(1000)
+        lcm = lcm * frac.denominator // math.gcd(lcm, frac.denominator)
+    return lcm
+
+
 def _schedule(n, ws, we):
     now = datetime.datetime.now()
     today = now.date()
@@ -240,6 +251,15 @@ def page_configure():
                     for j, (opt, r) in enumerate(zip(q["options"], ratios)):
                         with pct_cols[j % 4]:
                             st.caption(f"→ **{r/total*100:.1f}%**")
+                    min_n = _min_n_for_exact(cfg["ratios"])
+                    n_cur = st.session_state.n_submissions
+                    if n_cur % min_n == 0:
+                        st.success(f"✅ {n_cur} lần submit → chia đúng tỉ lệ (bội số của {min_n})")
+                    else:
+                        suggested = [min_n * k for k in range(1, 6) if min_n * k >= n_cur]
+                        nearest = suggested[0] if suggested else min_n
+                        st.warning(f"⚠️ {n_cur} lần không chia đúng tỉ lệ cho câu này. "
+                                   f"Nên dùng bội số của **{min_n}** → gần nhất: **{nearest}** lần")
 
             elif q["type"] == "checkbox" and q["options"]:
                 st.write("Xác suất chọn mỗi ô (%):")
