@@ -214,9 +214,24 @@ def page_configure():
     supported = [q for q in questions if q["type"] in SUPPORTED_TYPES]
     st.info(f"✅ Tìm thấy **{len(questions)}** câu hỏi ({len(supported)} loại được hỗ trợ)")
 
-    n = st.number_input("Số lần submit", min_value=1, max_value=10000,
-                        value=st.session_state.n_submissions, step=1)
-    st.session_state.n_submissions = int(n)
+    col_n, col_btn = st.columns([2, 1])
+    with col_n:
+        n = st.number_input("Số lần submit", min_value=1, max_value=10000,
+                            value=st.session_state.n_submissions, step=1)
+        st.session_state.n_submissions = int(n)
+    with col_btn:
+        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
+        if st.button("🎯 Tự động điều chỉnh"):
+            global_lcm = 1
+            for q in questions:
+                if q["type"] in ("multiple_choice", "dropdown", "linear_scale") and q.get("options"):
+                    n_opts = len(q["options"])
+                    global_lcm = global_lcm * n_opts // math.gcd(global_lcm, n_opts)
+            cur = st.session_state.n_submissions
+            if cur % global_lcm != 0:
+                adjusted = math.ceil(cur / global_lcm) * global_lcm
+                st.session_state.n_submissions = adjusted
+                st.rerun()
     st.divider()
 
     configured = []
