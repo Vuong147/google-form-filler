@@ -195,8 +195,8 @@ def page_url():
                 u = url.strip().rstrip("/")
                 if "viewform" not in u and "formResponse" not in u:
                     u += "/viewform"
-                questions, published_id, fbzx = parse_form(u)
-                form_id = published_id or get_form_id(u)
+                questions, _published_id, fbzx = parse_form(u)
+                form_id = get_form_id(u)
                 st.session_state.questions = questions
                 st.session_state.form_id = form_id
                 st.session_state.fbzx = fbzx

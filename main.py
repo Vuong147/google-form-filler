@@ -84,8 +84,8 @@ def main():
     print("\n⏳ Đang phân tích form...")
 
     try:
-        questions, published_id, fbzx = parse_form(url)
-        form_id = published_id or get_form_id(url)
+        questions, _published_id, fbzx = parse_form(url)
+        form_id = get_form_id(url)
     except Exception as e:
         print(f"\n❌ Lỗi khi phân tích form: {e}")
         sys.exit(1)
