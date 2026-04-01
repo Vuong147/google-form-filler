@@ -8,7 +8,7 @@ import time
 import streamlit as st
 
 from form_parser import parse_form, get_form_id
-from submitter import submit_form, precompute_answers
+from submitter import submit_form, precompute_answers, SUBMIT_URL_TEMPLATE
 
 st.set_page_config(page_title="Tool của a zai Hàn Quốc", page_icon="🤖", layout="centered")
 
