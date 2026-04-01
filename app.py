@@ -25,36 +25,56 @@ st.markdown("""
     .stApp::before {
         content: '';
         position: fixed;
-        top: -40%;
-        left: -20%;
-        width: 70%;
-        height: 70%;
-        background: radial-gradient(ellipse, #7c3aed55 0%, transparent 70%);
-        animation: blob1 12s ease-in-out infinite alternate;
+        top: -35%;
+        left: -15%;
+        width: 65%;
+        height: 65%;
+        background: radial-gradient(ellipse, #7c3aed33 0%, transparent 65%);
+        animation: blob1 22s ease-in-out infinite alternate;
         pointer-events: none;
         z-index: 0;
     }
     .stApp::after {
         content: '';
         position: fixed;
-        bottom: -30%;
-        right: -10%;
-        width: 60%;
-        height: 60%;
-        background: radial-gradient(ellipse, #0ea5e955 0%, transparent 70%);
-        animation: blob2 15s ease-in-out infinite alternate;
+        bottom: -25%;
+        right: -5%;
+        width: 55%;
+        height: 55%;
+        background: radial-gradient(ellipse, #0ea5e930 0%, transparent 65%);
+        animation: blob2 28s ease-in-out infinite alternate;
+        pointer-events: none;
+        z-index: 0;
+    }
+    /* third blob */
+    .stApp > div:first-child::before {
+        content: '';
+        position: fixed;
+        top: 35%;
+        left: 40%;
+        width: 45%;
+        height: 45%;
+        background: radial-gradient(ellipse, #f43f5e18 0%, transparent 60%);
+        animation: blob3 34s ease-in-out infinite alternate;
         pointer-events: none;
         z-index: 0;
     }
     @keyframes blob1 {
-        0%   { transform: translate(0, 0) scale(1); }
-        50%  { transform: translate(8%, 12%) scale(1.15); }
-        100% { transform: translate(-5%, 5%) scale(0.95); }
+        0%   { transform: translate(0,    0)    scale(1);    }
+        33%  { transform: translate(4%,   6%)   scale(1.06); }
+        66%  { transform: translate(-3%,  3%)   scale(0.97); }
+        100% { transform: translate(2%,  -4%)   scale(1.03); }
     }
     @keyframes blob2 {
-        0%   { transform: translate(0, 0) scale(1); }
-        50%  { transform: translate(-10%, -8%) scale(1.2); }
-        100% { transform: translate(5%, 10%) scale(0.9); }
+        0%   { transform: translate(0,    0)    scale(1);    }
+        33%  { transform: translate(-5%,  -4%)  scale(1.05); }
+        66%  { transform: translate(3%,   6%)   scale(0.96); }
+        100% { transform: translate(-2%,  2%)   scale(1.02); }
+    }
+    @keyframes blob3 {
+        0%   { transform: translate(0,    0)    scale(1);    }
+        50%  { transform: translate(-6%,  -5%)  scale(1.08); }
+        100% { transform: translate(4%,   3%)   scale(0.95); }
     }
 
     /* ── Typography ── */
