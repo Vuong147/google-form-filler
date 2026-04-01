@@ -14,48 +14,175 @@ st.set_page_config(page_title="Tool của a zai Hàn Quốc", page_icon="🤖", 
 
 st.markdown("""
 <style>
-    /* Nền gradient toàn trang */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    /* ── Animated aurora background ── */
     .stApp {
-        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        font-family: 'Inter', sans-serif;
+        background: #060612;
+        overflow-x: hidden;
     }
-    /* Tiêu đề chính */
-    h1 { color: #e0c3fc !important; letter-spacing: 1px; }
-    h2, h3 { color: #a78bfa !important; }
-    /* Input box */
-    .stTextInput > div > div > input {
-        background: rgba(255,255,255,0.08);
-        color: #fff;
-        border: 1px solid #7c3aed;
-        border-radius: 10px;
+    .stApp::before {
+        content: '';
+        position: fixed;
+        top: -40%;
+        left: -20%;
+        width: 70%;
+        height: 70%;
+        background: radial-gradient(ellipse, #7c3aed55 0%, transparent 70%);
+        animation: blob1 12s ease-in-out infinite alternate;
+        pointer-events: none;
+        z-index: 0;
     }
-    /* Nút bấm chính */
+    .stApp::after {
+        content: '';
+        position: fixed;
+        bottom: -30%;
+        right: -10%;
+        width: 60%;
+        height: 60%;
+        background: radial-gradient(ellipse, #0ea5e955 0%, transparent 70%);
+        animation: blob2 15s ease-in-out infinite alternate;
+        pointer-events: none;
+        z-index: 0;
+    }
+    @keyframes blob1 {
+        0%   { transform: translate(0, 0) scale(1); }
+        50%  { transform: translate(8%, 12%) scale(1.15); }
+        100% { transform: translate(-5%, 5%) scale(0.95); }
+    }
+    @keyframes blob2 {
+        0%   { transform: translate(0, 0) scale(1); }
+        50%  { transform: translate(-10%, -8%) scale(1.2); }
+        100% { transform: translate(5%, 10%) scale(0.9); }
+    }
+
+    /* ── Typography ── */
+    h1 { color: #f0e6ff !important; letter-spacing: -0.5px; font-weight: 700 !important; }
+    h2, h3 { color: #c4b5fd !important; font-weight: 600 !important; }
+    p, label, .stMarkdown { color: #cbd5e1 !important; }
+
+    /* ── Main content area ── */
+    .block-container {
+        background: rgba(255,255,255,0.03);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 20px;
+        padding: 2rem 2.5rem !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    /* ── Inputs ── */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stTextArea > div > div > textarea {
+        background: rgba(255,255,255,0.06) !important;
+        color: #f0e6ff !important;
+        border: 1px solid rgba(167,139,250,0.35) !important;
+        border-radius: 12px !important;
+        backdrop-filter: blur(10px);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: #a855f7 !important;
+        box-shadow: 0 0 0 3px rgba(168,85,247,0.18) !important;
+    }
+
+    /* ── Selectbox / Radio ── */
+    .stSelectbox > div > div,
+    .stRadio > div {
+        background: rgba(255,255,255,0.05) !important;
+        border-radius: 12px;
+        color: #f0e6ff !important;
+    }
+
+    /* ── Primary button ── */
     .stButton > button[kind="primary"] {
-        background: linear-gradient(90deg, #7c3aed, #a855f7);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        font-weight: bold;
-        padding: 0.5rem 2rem;
-        transition: 0.3s;
+        background: linear-gradient(135deg, #7c3aed, #06b6d4);
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        padding: 0.55rem 2rem !important;
+        box-shadow: 0 4px 20px rgba(124,58,237,0.45);
+        transition: transform 0.2s, box-shadow 0.2s;
     }
     .stButton > button[kind="primary"]:hover {
-        background: linear-gradient(90deg, #6d28d9, #9333ea);
-        transform: scale(1.03);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(124,58,237,0.6);
     }
-    /* Card expander */
+    /* ── Secondary button ── */
+    .stButton > button:not([kind="primary"]) {
+        background: rgba(255,255,255,0.07) !important;
+        color: #c4b5fd !important;
+        border: 1px solid rgba(167,139,250,0.3) !important;
+        border-radius: 12px !important;
+        font-weight: 500 !important;
+        transition: background 0.2s, transform 0.2s;
+    }
+    .stButton > button:not([kind="primary"]):hover {
+        background: rgba(167,139,250,0.15) !important;
+        transform: translateY(-1px);
+    }
+
+    /* ── Expander ── */
     .streamlit-expanderHeader {
-        background: rgba(124,58,237,0.15);
-        border-radius: 8px;
+        background: rgba(124,58,237,0.12) !important;
+        border: 1px solid rgba(167,139,250,0.2) !important;
+        border-radius: 12px !important;
         color: #e0c3fc !important;
     }
-    /* Divider */
-    hr { border-color: #7c3aed44; }
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background: rgba(15,12,41,0.95);
-        border-right: 1px solid #7c3aed44;
+    .streamlit-expanderContent {
+        background: rgba(255,255,255,0.02) !important;
+        border: 1px solid rgba(167,139,250,0.1) !important;
+        border-top: none !important;
+        border-radius: 0 0 12px 12px !important;
     }
-    /* Ảnh avatar tòn đẹp */
+
+    /* ── Metric cards ── */
+    [data-testid="stMetric"] {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(167,139,250,0.2);
+        border-radius: 16px;
+        padding: 1rem;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    [data-testid="stMetricValue"] { color: #f0e6ff !important; font-weight: 700 !important; }
+
+    /* ── Progress bar ── */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #7c3aed, #06b6d4) !important;
+        border-radius: 99px;
+    }
+    .stProgress > div > div {
+        background: rgba(255,255,255,0.08) !important;
+        border-radius: 99px;
+    }
+
+    /* ── Alert / Info / Success / Warning ── */
+    .stAlert {
+        border-radius: 12px !important;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1) !important;
+    }
+
+    /* ── Divider ── */
+    hr { border-color: rgba(167,139,250,0.2) !important; }
+
+    /* ── Sidebar ── */
+    [data-testid="stSidebar"] {
+        background: rgba(6,6,18,0.85) !important;
+        backdrop-filter: blur(24px);
+        border-right: 1px solid rgba(124,58,237,0.25) !important;
+    }
+    [data-testid="stSidebar"] > div:first-child {
+        background: transparent !important;
+    }
+
+    /* ── Avatar ── */
     .avatar-container {
         display: flex;
         flex-direction: column;
@@ -63,19 +190,33 @@ st.markdown("""
         padding: 1.5rem 0 1rem 0;
     }
     .avatar-container img {
-        border-radius: 16px;
-        border: 3px solid #a855f7;
-        box-shadow: 0 0 20px #7c3aed88;
+        border-radius: 18px;
+        border: 2px solid rgba(168,85,247,0.6);
+        box-shadow: 0 0 30px rgba(124,58,237,0.5), 0 0 60px rgba(6,182,212,0.15);
         width: 100%;
         object-fit: cover;
+        transition: box-shadow 0.3s;
     }
     .avatar-name {
         color: #e0c3fc;
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 600;
-        margin-top: 0.6rem;
+        margin-top: 0.7rem;
         text-align: center;
+        letter-spacing: 0.3px;
     }
+
+    /* ── Code block ── */
+    .stCodeBlock {
+        border-radius: 12px !important;
+        border: 1px solid rgba(167,139,250,0.15) !important;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(167,139,250,0.4); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(167,139,250,0.7); }
 </style>
 """, unsafe_allow_html=True)
 
