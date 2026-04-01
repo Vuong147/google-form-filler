@@ -1,3 +1,4 @@
+import base64
 import datetime
 import os
 import random
@@ -124,12 +125,18 @@ def _render_sidebar():
         st.markdown('<div class="avatar-name">🤖 Form Auto Filler</div>', unsafe_allow_html=True)
         st.divider()
 
-        # Nhạc nền
+        # Nhạc nền autoplay
         music_path = os.path.join(ASSETS_DIR, "music.mp3")
         if os.path.exists(music_path):
             st.markdown("**🎵 Nhạc nền**")
             with open(music_path, "rb") as f:
-                st.audio(f.read(), format="audio/mp3")
+                b64 = base64.b64encode(f.read()).decode()
+            st.markdown(
+                f'<audio autoplay loop controls style="width:100%;margin-top:4px">'
+                f'<source src="data:audio/mp3;base64,{b64}" type="audio/mp3">'
+                f'</audio>',
+                unsafe_allow_html=True
+            )
         else:
             st.caption("⚠️ Chưa có file nhạc.\nThêm `assets/music.mp3` vào project.")
 
