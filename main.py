@@ -150,7 +150,7 @@ def main():
                 time.sleep(wait)
 
         proxy = proxies[(i - 1) % len(proxies)] if use_proxy and proxies else None
-        success, answers = submit_form(
+        success, answers, _debug = submit_form(
             form_id, configured, submission_index=i - 1, proxy=proxy, fbzx=fbzx
         )
         results.append({"success": success, "answers": answers})

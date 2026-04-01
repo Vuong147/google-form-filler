@@ -441,7 +441,9 @@ def page_run():
                 time.sleep(wait)
 
         proxy = proxies[(i - 1) % len(proxies)] if proxies else None
-        success, answers = submit_form(form_id, configured, submission_index=i - 1, proxy=proxy, fbzx=fbzx)
+        success, answers, debug_info = submit_form(form_id, configured, submission_index=i - 1, proxy=proxy, fbzx=fbzx)
+        if not success and debug_info and "first_debug" not in st.session_state:
+            st.session_state["first_debug"] = debug_info
         results.append({"success": success, "answers": answers})
 
         icon = "✅" if success else "❌"
@@ -464,7 +466,16 @@ def page_run():
     col1.metric("Tổng submit", n)
     col2.metric("✅ Thành công", ok)
     col3.metric("❌ Thất bại", fail)
-    st.success(f"🎉 Hoàn thành! Tỉ lệ thành công: {ok/n*100:.1f}%")
+    if ok > 0:
+        st.success(f"🎉 Hoàn thành! Tỉ lệ thành công: {ok/n*100:.1f}%")
+    else:
+        st.error("❌ Tất cả submit đều thất bại")
+
+    if st.session_state.get("first_debug"):
+        with st.expander("🔍 Debug response (Google trả về)", expanded=True):
+            st.caption(f"Form ID: `{form_id}`")
+            st.caption(f"Submit URL: `{SUBMIT_URL_TEMPLATE.format(form_id=form_id)}`")
+            st.code(st.session_state["first_debug"][:800], language="html")
 
     c1, c2 = st.columns(2)
     with c1:

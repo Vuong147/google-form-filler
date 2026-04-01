@@ -163,13 +163,14 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
             proxies=proxies
         )
         if resp.status_code != 200:
-            return False, chosen
+            return False, chosen, f"HTTP {resp.status_code}"
         success = is_success(resp.text)
-        return success, chosen
+        snippet = resp.text[:600] if not success else ""
+        return success, chosen, snippet
 
     except requests.exceptions.Timeout:
-        return False, chosen
-    except requests.exceptions.ConnectionError:
-        return False, chosen
-    except Exception:
-        return False, chosen
+        return False, chosen, "Timeout"
+    except requests.exceptions.ConnectionError as e:
+        return False, chosen, f"ConnectionError: {e}"
+    except Exception as e:
+        return False, chosen, str(e)
