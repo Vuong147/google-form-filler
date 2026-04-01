@@ -214,24 +214,9 @@ def page_configure():
     supported = [q for q in questions if q["type"] in SUPPORTED_TYPES]
     st.info(f"✅ Tìm thấy **{len(questions)}** câu hỏi ({len(supported)} loại được hỗ trợ)")
 
-    col_n, col_btn = st.columns([2, 1])
-    with col_n:
-        n = st.number_input("Số lần submit", min_value=1, max_value=10000,
-                            value=st.session_state.n_submissions, step=1)
-        st.session_state.n_submissions = int(n)
-    with col_btn:
-        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
-        if st.button("🎯 Tự động điều chỉnh"):
-            global_lcm = 1
-            for q in questions:
-                if q["type"] in ("multiple_choice", "dropdown", "linear_scale") and q.get("options"):
-                    n_opts = len(q["options"])
-                    global_lcm = global_lcm * n_opts // math.gcd(global_lcm, n_opts)
-            cur = st.session_state.n_submissions
-            if cur % global_lcm != 0:
-                adjusted = math.ceil(cur / global_lcm) * global_lcm
-                st.session_state.n_submissions = adjusted
-                st.rerun()
+    n = st.number_input("Số lần submit", min_value=1, max_value=10000,
+                        value=st.session_state.n_submissions, step=1)
+    st.session_state.n_submissions = int(n)
     st.divider()
 
     configured = []
@@ -333,7 +318,28 @@ def page_configure():
 
         configured.append(cfg)
 
+    # Tính LCM từ tỉ lệ THỰC TẾ đã nhập
+    global_lcm = 1
+    for cfg_q in configured:
+        if cfg_q.get("type") in ("multiple_choice", "dropdown", "linear_scale") and cfg_q.get("ratios"):
+            min_n = _min_n_for_exact(cfg_q["ratios"])
+            global_lcm = global_lcm * min_n // math.gcd(global_lcm, min_n)
+
+    n_cur = st.session_state.n_submissions
     st.divider()
+    if global_lcm > 1:
+        if n_cur % global_lcm == 0:
+            st.success(f"✅ **{n_cur}** lần submit → đúng tỉ lệ tuyệt đối (bội số của {global_lcm})")
+        else:
+            nearest = math.ceil(n_cur / global_lcm) * global_lcm
+            st.warning(
+                f"⚠️ **{n_cur}** lần không chia đúng tỉ lệ. "
+                f"Cần bội số của **{global_lcm}** → gần nhất: **{nearest}** lần"
+            )
+            if st.button(f"🎯 Điều chỉnh thành {nearest} lần"):
+                st.session_state.n_submissions = nearest
+                st.rerun()
+
     col1, col2 = st.columns(2)
     with col1:
         if st.button("← Quay lại"):
