@@ -375,6 +375,12 @@ def _render_sidebar():
             icon = "✅" if idx < st.session_state.step else ("🔵" if idx == st.session_state.step else "⚪")
             st.markdown(f"{icon} {label}")
 
+        st.divider()
+        st.markdown("**🌐 Liên kết mạng xã hội**")
+        st.markdown("- [Instagram](https://instagram.com)")
+        st.markdown("- [TikTok](https://www.tiktok.com)")
+        st.markdown("- [Facebook](https://facebook.com)")
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _min_n_for_exact(ratios: list) -> int:
