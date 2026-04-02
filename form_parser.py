@@ -9,6 +9,7 @@ QUESTION_TYPES = {
     3: "dropdown",
     4: "checkbox",
     5: "linear_scale",
+    8: "section_header",
     7: "grid_multiple_choice",
     9: "date",
     10: "time",
@@ -71,12 +72,18 @@ def parse_form(url: str) -> tuple:
         raise ValueError("Cấu trúc form không nhận dạng được.")
 
     questions = []
+    page_index = 0
 
     for item in raw_questions:
         try:
             q_text = item[1] or "(Không có tiêu đề)"
             q_type_code = item[3]
             q_type = QUESTION_TYPES.get(q_type_code, "unknown")
+
+            if q_type == "section_header":
+                page_index += 1
+                continue
+
             entry_data = item[4] if len(item) > 4 else None
             if not entry_data:
                 continue
@@ -107,6 +114,7 @@ def parse_form(url: str) -> tuple:
                         "type": "multiple_choice",
                         "type_code": q_type_code,
                         "entry_id": str(row_id),
+                        "page_index": page_index,
                         "options": col_options,
                         "ratios": [],
                         "answers": [],
@@ -141,6 +149,7 @@ def parse_form(url: str) -> tuple:
                 "type": q_type,
                 "type_code": q_type_code,
                 "entry_id": str(entry_id),
+                "page_index": page_index,
                 "options": options,
                 "ratios": [],
                 "answers": [],

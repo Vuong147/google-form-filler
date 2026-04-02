@@ -1,4 +1,5 @@
 import random
+import json
 import requests
 import time
 
@@ -117,10 +118,29 @@ def pick_answer(question: dict, idx: int = 0):
     return None
 
 
-def build_payload(questions: list, idx: int = 0, fbzx: str = None) -> tuple:
-    data = {"fvv": "1", "pageHistory": "0"}
+def _guess_page_count(questions: list) -> int:
+    max_idx = 0
+    for q in questions:
+        try:
+            max_idx = max(max_idx, int(q.get("page_index", 0)))
+        except Exception:
+            continue
+    return max(1, max_idx + 1)
+
+
+def _candidate_page_histories(page_count: int) -> list:
+    histories = ["0"]
+    for k in range(2, page_count + 3):
+        histories.append(",".join(str(i) for i in range(k)))
+    return histories
+
+
+def build_payload(questions: list, idx: int = 0, fbzx: str = None,
+                  page_history: str = "0") -> tuple:
+    data = {"fvv": "1", "pageHistory": page_history}
     if fbzx:
         data["fbzx"] = fbzx
+        data["draftResponse"] = json.dumps([None, None, fbzx], separators=(",", ":"))
     else:
         data["fbzx"] = str(random.randint(-9_000_000_000_000_000_000, 9_000_000_000_000_000_000))
     chosen = {}
@@ -150,23 +170,42 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
                 submission_index: int = 0, proxy: str = None,
                 fbzx: str = None) -> tuple:
     url = SUBMIT_URL_TEMPLATE.format(form_id=form_id)
-    payload, chosen = build_payload(questions, submission_index, fbzx=fbzx)
+    page_count = _guess_page_count(questions)
+    histories = _candidate_page_histories(page_count)
+    chosen = {}
 
     proxies = None
     if proxy:
         proxies = {"http": proxy, "https": proxy}
 
     try:
-        resp = requests.post(
-            url, data=payload, headers=HEADERS,
-            timeout=timeout, allow_redirects=True,
-            proxies=proxies
-        )
-        if resp.status_code != 200:
-            return False, chosen, f"HTTP {resp.status_code}"
-        success = is_success(resp.text)
-        snippet = resp.text[:600] if not success else ""
-        return success, chosen, snippet
+        first_debug = ""
+        for page_history in histories:
+            payload, chosen = build_payload(
+                questions,
+                submission_index,
+                fbzx=fbzx,
+                page_history=page_history,
+            )
+            resp = requests.post(
+                url, data=payload, headers=HEADERS,
+                timeout=timeout, allow_redirects=True,
+                proxies=proxies
+            )
+
+            if resp.status_code != 200:
+                if not first_debug:
+                    first_debug = f"HTTP {resp.status_code} (pageHistory={page_history})"
+                continue
+
+            success = is_success(resp.text)
+            if success:
+                return True, chosen, ""
+
+            if not first_debug:
+                first_debug = f"pageHistory={page_history}\n" + resp.text[:600]
+
+        return False, chosen, first_debug or "Submit failed for all pageHistory candidates"
 
     except requests.exceptions.Timeout:
         return False, chosen, "Timeout"
