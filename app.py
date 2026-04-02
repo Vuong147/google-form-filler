@@ -239,6 +239,9 @@ st.markdown("""
         flex-direction: column;
         align-items: center;
         padding: 0.9rem 0 0.6rem 0;
+        position: relative;
+        overflow: hidden;
+        border-radius: 18px;
     }
     .avatar-container img {
         border-radius: 18px;
@@ -248,6 +251,40 @@ st.markdown("""
         max-height: 220px;
         object-fit: cover;
         transition: box-shadow 0.3s;
+        position: relative;
+        z-index: 1;
+    }
+    .avatar-snow {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 2;
+        border-radius: 18px;
+        overflow: hidden;
+    }
+    .avatar-snow span {
+        position: absolute;
+        top: -10%;
+        left: var(--x);
+        width: var(--s);
+        height: var(--s);
+        background: rgba(255, 255, 255, 0.88);
+        border-radius: 50%;
+        box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+        animation: avatar-snow-fall var(--d) linear infinite;
+        animation-delay: var(--delay);
+    }
+    @keyframes avatar-snow-fall {
+        0% {
+            transform: translate3d(0, -10%, 0);
+            opacity: 0;
+        }
+        15% { opacity: 0.9; }
+        80% { opacity: 0.85; }
+        100% {
+            transform: translate3d(10px, 115%, 0);
+            opacity: 0;
+        }
     }
     .avatar-name {
         color: #dbeafe;
@@ -399,6 +436,21 @@ def _render_sidebar():
         if avatar_path:
             st.markdown('<div class="avatar-container">', unsafe_allow_html=True)
             st.image(avatar_path, use_container_width=True)
+            st.markdown(
+                """
+                <div class="avatar-snow" aria-hidden="true">
+                    <span style="--x:7%;--s:4px;--d:7s;--delay:-1s"></span>
+                    <span style="--x:16%;--s:3px;--d:8s;--delay:-4s"></span>
+                    <span style="--x:27%;--s:5px;--d:9s;--delay:-2s"></span>
+                    <span style="--x:39%;--s:3px;--d:8.5s;--delay:-5s"></span>
+                    <span style="--x:52%;--s:4px;--d:7.5s;--delay:-3s"></span>
+                    <span style="--x:63%;--s:3px;--d:9.5s;--delay:-6s"></span>
+                    <span style="--x:74%;--s:5px;--d:8.2s;--delay:-2.5s"></span>
+                    <span style="--x:86%;--s:4px;--d:7.8s;--delay:-4.5s"></span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
             if os.path.exists(music_path):
                 with open(music_path, "rb") as f:
