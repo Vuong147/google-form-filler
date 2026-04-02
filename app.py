@@ -285,6 +285,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
+APP_PASSWORD = "2707"
 
 SUPPORTED_TYPES = ("multiple_choice", "dropdown", "checkbox", "linear_scale",
                    "short_text", "paragraph", "date", "time")
@@ -299,12 +300,34 @@ def _init():
         "win_start": "08:00", "win_end": "22:00",
         "proxies": [], "use_proxy": False,
         "results": [], "log": [],
+        "authenticated": False,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
 
 _init()
+
+
+def page_password():
+    st.markdown(
+        """
+        <div style='text-align:center; padding: 2.2rem 0 1.2rem 0;'>
+            <h2 style='margin-bottom: 0.6rem;'>🔐 NHẬP PASSWORD ĐỂ DÙNG TOOL (NGÀY SINH CỦA VƯN)</h2>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        pwd = st.text_input("Password", type="password", key="password_input")
+        if st.button("Mở tool", type="primary", use_container_width=True):
+            if pwd == APP_PASSWORD:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("❌ Sai mật khẩu")
 
 
 # ── Sidebar: ảnh + nhạc ────────────────────────────────────────────────────────
@@ -741,6 +764,10 @@ def page_run():
 
 
 # ── Router ────────────────────────────────────────────────────────────────────
+if not st.session_state.get("authenticated", False):
+    page_password()
+    st.stop()
+
 _render_sidebar()
 pages = {0: page_url, 1: page_configure, 2: page_settings, 3: page_run}
 pages[st.session_state.step]()
