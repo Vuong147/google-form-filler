@@ -573,6 +573,58 @@ def _render_sidebar():
         st.markdown("- [TikTok](https://www.tiktok.com/@hvunn_)")
         st.markdown("- [Facebook](https://www.facebook.com/youngboist/)")
 
+        st.divider()
+        with st.expander("🛡️ Quản lý thiết bị (Admin)"):
+            admin_pwd = st.text_input("Admin password", type="password", key="admin_panel_password")
+            if admin_pwd == APP_PASSWORD:
+                registry = _load_device_registry()
+                allowed = list(dict.fromkeys(registry.get("allowed_devices", [])))
+                blocked = list(dict.fromkeys(registry.get("blocked_devices", [])))
+
+                current_device = st.session_state.get("device_id", _get_device_id())
+                st.caption(f"Thiết bị hiện tại: `{current_device}`")
+
+                target_id = st.text_input(
+                    "Device ID cần thao tác",
+                    value=current_device,
+                    key="admin_target_device_id",
+                ).strip()
+
+                c1, c2, c3 = st.columns(3)
+                if c1.button("✅ Allow", use_container_width=True):
+                    if target_id:
+                        if target_id in blocked:
+                            blocked.remove(target_id)
+                        if target_id not in allowed:
+                            allowed.append(target_id)
+                        _save_device_registry({"allowed_devices": allowed, "blocked_devices": blocked})
+                        st.success("Đã cấp quyền thiết bị")
+
+                if c2.button("⛔ Block", use_container_width=True):
+                    if target_id:
+                        if target_id in allowed:
+                            allowed.remove(target_id)
+                        if target_id not in blocked:
+                            blocked.append(target_id)
+                        _save_device_registry({"allowed_devices": allowed, "blocked_devices": blocked})
+                        st.warning("Đã chặn thiết bị")
+
+                if c3.button("🗑️ Remove", use_container_width=True):
+                    if target_id:
+                        if target_id in allowed:
+                            allowed.remove(target_id)
+                        if target_id in blocked:
+                            blocked.remove(target_id)
+                        _save_device_registry({"allowed_devices": allowed, "blocked_devices": blocked})
+                        st.info("Đã gỡ thiết bị khỏi danh sách")
+
+                st.markdown("**Allowed devices**")
+                st.code("\n".join(allowed) if allowed else "(trống)")
+                st.markdown("**Blocked devices**")
+                st.code("\n".join(blocked) if blocked else "(trống)")
+            elif admin_pwd:
+                st.error("Sai admin password")
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _min_n_for_exact(ratios: list) -> int:
