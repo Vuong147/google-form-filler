@@ -420,6 +420,18 @@ def page_url():
     """, unsafe_allow_html=True)
     st.divider()
 
+    st.markdown("**🌐 Liên kết mạng xã hội**")
+    st.markdown(
+        """
+| Nền tảng | Link |
+|---|---|
+| Instagram | [@hvgnoul_](https://www.instagram.com/hvgnoul_/) |
+| TikTok | [@hvunn_](https://www.tiktok.com/@hvunn_) |
+| Facebook | [youngboist](https://www.facebook.com/youngboist/) |
+        """
+    )
+    st.divider()
+
     url = st.text_input("🔗 Nhập URL Google Form",
                         placeholder="https://docs.google.com/forms/d/...")
 
