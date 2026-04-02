@@ -120,6 +120,7 @@ def precompute_answers(questions: list, n: int) -> None:
     Guarantees ratio-exact distribution instead of pure random.
     """
     for q in questions:
+        q["_cursor"] = 0
         q_type = q.get("type")
         options = q.get("options", [])
         ratios = q.get("ratios", [])
@@ -149,17 +150,21 @@ def pick_answer(question: dict, idx: int = 0):
     answers = question.get("answers", [])
     per_submission = question.get("per_submission", False)
     precomputed = question.get("_precomputed")
+    cursor = int(question.get("_cursor", 0))
 
     if q_type in ("multiple_choice", "dropdown", "linear_scale"):
         if precomputed:
-            return precomputed[idx % len(precomputed)]
+            answer = precomputed[cursor % len(precomputed)]
+            question["_cursor"] = cursor + 1
+            return answer
         if not options or not ratios:
             return None
         return random.choices(options, weights=ratios, k=1)[0]
 
     elif q_type == "checkbox":
         if precomputed:
-            item = precomputed[idx % len(precomputed)]
+            item = precomputed[cursor % len(precomputed)]
+            question["_cursor"] = cursor + 1
             return item if isinstance(item, list) else [item]
         if not options or not ratios:
             return []
@@ -172,16 +177,22 @@ def pick_answer(question: dict, idx: int = 0):
         if not answers:
             return ""
         if per_submission:
-            return answers[idx % len(answers)]
+            answer = answers[cursor % len(answers)]
+            question["_cursor"] = cursor + 1
+            return answer
         if precomputed:
-            return precomputed[idx % len(precomputed)]
+            answer = precomputed[cursor % len(precomputed)]
+            question["_cursor"] = cursor + 1
+            return answer
         return random.choices(answers, weights=ratios, k=1)[0]
 
     elif q_type in ("date", "time"):
         if not answers:
             return ""
         if precomputed:
-            return precomputed[idx % len(precomputed)]
+            answer = precomputed[cursor % len(precomputed)]
+            question["_cursor"] = cursor + 1
+            return answer
         return random.choice(answers)
 
     return None
@@ -216,24 +227,59 @@ def _candidate_page_histories(page_count: int) -> list:
 def _pick_answers_for_submission(questions: list, idx: int = 0) -> tuple:
     picked_by_entry = {}
     chosen = {}
+    page_count = _guess_page_count(questions)
+    visited = [0]
+    current_page = 0
 
-    for q in questions:
-        if q.get("skip"):
-            continue
+    for _ in range(max(1, page_count + 2)):
+        page_questions = [
+            q for q in questions
+            if not q.get("skip") and int(q.get("page_index", 0)) == current_page
+        ]
 
-        answer = pick_answer(q, idx)
-        if answer is None:
-            continue
+        jump_target = None
+        submit_now = False
 
-        entry_id = str(q["entry_id"])
-        picked_by_entry[entry_id] = answer
+        for q in page_questions:
+            answer = pick_answer(q, idx)
+            if answer is None:
+                continue
 
-        if isinstance(answer, list):
-            chosen[q["text"]] = answer if answer else ["(không chọn)"]
-        else:
-            chosen[q["text"]] = answer
+            entry_id = str(q["entry_id"])
+            picked_by_entry[entry_id] = answer
 
-    return picked_by_entry, chosen
+            if isinstance(answer, list):
+                chosen[q["text"]] = answer if answer else ["(không chọn)"]
+            else:
+                chosen[q["text"]] = answer
+
+            routes = q.get("option_routes") or {}
+            overrides = q.get("option_routes_override") or {}
+            active_routes = dict(routes)
+            active_routes.update(overrides)
+            if not active_routes or isinstance(answer, list):
+                continue
+
+            route = active_routes.get(answer)
+            if route == "__submit__":
+                submit_now = True
+                break
+            if isinstance(route, int) and jump_target is None:
+                jump_target = route
+
+        if submit_now:
+            break
+
+        next_page = jump_target if jump_target is not None else current_page + 1
+        if next_page >= page_count:
+            break
+        if visited and visited[-1] == next_page:
+            break
+
+        visited.append(next_page)
+        current_page = next_page
+
+    return picked_by_entry, chosen, ",".join(str(i) for i in visited)
 
 
 def _derive_branch_history(questions: list, picked_by_entry: dict, page_count: int) -> str:
@@ -313,12 +359,11 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
                 fbzx: str = None) -> tuple:
     url = SUBMIT_URL_TEMPLATE.format(form_id=form_id)
     page_count = _guess_page_count(questions)
-    picked_by_entry, chosen = _pick_answers_for_submission(questions, submission_index)
+    picked_by_entry, chosen, picked_history = _pick_answers_for_submission(questions, submission_index)
 
-    branch_history = _derive_branch_history(questions, picked_by_entry, page_count)
     histories = []
-    if branch_history:
-        histories.append(branch_history)
+    if picked_history:
+        histories.append(picked_history)
     histories.extend(_candidate_page_histories(page_count))
 
     dedup_histories = []
