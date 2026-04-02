@@ -56,8 +56,10 @@ def _target_counts(weights: list, n: int) -> list:
     floors = [int(c) for c in raw_counts]
     deficit = n - sum(floors)
 
+    indices = list(range(len(raw_counts)))
+    random.shuffle(indices)
     remainders = sorted(
-        range(len(raw_counts)),
+        indices,
         key=lambda k: raw_counts[k] - floors[k],
         reverse=True,
     )
