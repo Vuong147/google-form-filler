@@ -16,10 +16,10 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-    /* ── Pink Sakura Theme ── */
+    /* ── Dark Gray Gradient Theme ── */
     .stApp {
         font-family: 'Inter', sans-serif;
-        background: linear-gradient(135deg, #ffe4ef 0%, #ffd6e8 42%, #ffc9e1 100%);
+        background: linear-gradient(135deg, #0f1319 0%, #1a212b 45%, #262f3d 100%);
         overflow-x: hidden;
     }
     .stApp::before {
@@ -29,7 +29,7 @@ st.markdown("""
         left: -10%;
         width: 60%;
         height: 60%;
-        background: radial-gradient(ellipse, rgba(255, 112, 166, 0.32) 0%, transparent 68%);
+        background: radial-gradient(ellipse, rgba(96, 165, 250, 0.16) 0%, transparent 70%);
         animation: blob1 20s ease-in-out infinite alternate;
         pointer-events: none;
         z-index: 0;
@@ -41,44 +41,13 @@ st.markdown("""
         right: -8%;
         width: 58%;
         height: 58%;
-        background: radial-gradient(ellipse, rgba(255, 155, 190, 0.28) 0%, transparent 70%);
+        background: radial-gradient(ellipse, rgba(148, 163, 184, 0.16) 0%, transparent 72%);
         animation: blob2 24s ease-in-out infinite alternate;
         pointer-events: none;
         z-index: 0;
     }
 
     .stApp > div { position: relative; z-index: 1; }
-
-    .sakura-layer {
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 0;
-        overflow: hidden;
-    }
-    .sakura {
-        position: absolute;
-        top: -10vh;
-        left: var(--left);
-        width: var(--size);
-        height: calc(var(--size) * 0.76);
-        background: linear-gradient(135deg, #fff5f9, #ffb3d1 72%);
-        border-radius: 70% 0 70% 0;
-        opacity: 0.72;
-        filter: drop-shadow(0 1px 2px rgba(255, 105, 160, 0.25));
-        animation: sakura-fall var(--dur) linear infinite;
-        animation-delay: var(--delay);
-    }
-    .sakura::after {
-        content: '';
-        position: absolute;
-        width: 55%;
-        height: 55%;
-        top: 22%;
-        left: 24%;
-        border-radius: 70% 0 70% 0;
-        background: rgba(255, 236, 244, 0.75);
-    }
 
     @keyframes blob1 {
         0%   { transform: translate(0, 0) scale(1); }
@@ -90,44 +59,28 @@ st.markdown("""
         50%  { transform: translate(-6%, -3%) scale(1.07); }
         100% { transform: translate(3%, 4%) scale(0.94); }
     }
-    @keyframes sakura-fall {
-        0% {
-            transform: translate3d(0, -12vh, 0) rotate(0deg);
-            opacity: 0;
-        }
-        12% { opacity: 0.75; }
-        50% {
-            transform: translate3d(18px, 52vh, 0) rotate(155deg);
-            opacity: 0.72;
-        }
-        100% {
-            transform: translate3d(-16px, 112vh, 0) rotate(320deg);
-            opacity: 0.1;
-        }
-    }
-
     /* ── Typography ── */
-    h1 { color: #7a1f4f !important; letter-spacing: -0.5px; font-weight: 700 !important; }
-    h2, h3 { color: #9f2f66 !important; font-weight: 600 !important; }
-    p, label, .stMarkdown { color: #7d3059 !important; }
+    h1 { color: #f8fafc !important; letter-spacing: -0.5px; font-weight: 700 !important; }
+    h2, h3 { color: #e2e8f0 !important; font-weight: 600 !important; }
+    p, label, .stMarkdown { color: #cbd5e1 !important; }
 
     /* ── Main content area ── */
     .block-container {
-        background: rgba(255, 255, 255, 0.46);
-        backdrop-filter: blur(14px);
-        border: 1px solid rgba(255, 174, 206, 0.5);
+        background: rgba(15, 20, 28, 0.72);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(148, 163, 184, 0.28);
         border-radius: 20px;
         padding: 2rem 2.5rem !important;
-        box-shadow: 0 12px 30px rgba(196, 63, 123, 0.16);
+        box-shadow: 0 14px 36px rgba(2, 6, 23, 0.55);
     }
 
     /* ── Inputs ── */
     .stTextInput > div > div > input,
     .stNumberInput > div > div > input,
     .stTextArea > div > div > textarea {
-        background: rgba(255, 255, 255, 0.7) !important;
-        color: #6f214a !important;
-        border: 1px solid rgba(236, 116, 167, 0.42) !important;
+        background: rgba(15, 23, 34, 0.9) !important;
+        color: #f8fafc !important;
+        border: 1px solid rgba(148, 163, 184, 0.42) !important;
         border-radius: 12px !important;
         backdrop-filter: blur(10px);
         transition: border-color 0.2s, box-shadow 0.2s;
@@ -135,79 +88,79 @@ st.markdown("""
     .stTextInput > div > div > input:focus,
     .stNumberInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: #ea4f9b !important;
-        box-shadow: 0 0 0 3px rgba(234, 79, 155, 0.2) !important;
+        border-color: #60a5fa !important;
+        box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.22) !important;
     }
 
     /* ── Selectbox / Radio ── */
     .stSelectbox > div > div,
     .stRadio > div {
-        background: rgba(255, 245, 250, 0.8) !important;
+        background: rgba(15, 23, 34, 0.78) !important;
         border-radius: 12px;
-        color: #6f214a !important;
+        color: #f1f5f9 !important;
     }
 
     /* ── Primary button ── */
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #f062a2, #ff8fba);
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
         color: white !important;
         border: none !important;
         border-radius: 12px !important;
         font-weight: 600 !important;
         padding: 0.55rem 2rem !important;
-        box-shadow: 0 6px 20px rgba(240, 98, 162, 0.4);
+        box-shadow: 0 8px 24px rgba(37, 99, 235, 0.42);
         transition: transform 0.2s, box-shadow 0.2s;
     }
     .stButton > button[kind="primary"]:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 30px rgba(240, 98, 162, 0.55);
+        box-shadow: 0 12px 34px rgba(37, 99, 235, 0.55);
     }
     /* ── Secondary button ── */
     .stButton > button:not([kind="primary"]) {
-        background: rgba(255, 255, 255, 0.55) !important;
-        color: #9f2f66 !important;
-        border: 1px solid rgba(236, 116, 167, 0.35) !important;
+        background: rgba(15, 23, 34, 0.7) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(148, 163, 184, 0.35) !important;
         border-radius: 12px !important;
         font-weight: 500 !important;
         transition: background 0.2s, transform 0.2s;
     }
     .stButton > button:not([kind="primary"]):hover {
-        background: rgba(255, 187, 219, 0.55) !important;
+        background: rgba(30, 41, 59, 0.85) !important;
         transform: translateY(-1px);
     }
 
     /* ── Expander ── */
     .streamlit-expanderHeader {
-        background: rgba(255, 183, 216, 0.45) !important;
-        border: 1px solid rgba(236, 116, 167, 0.35) !important;
+        background: rgba(30, 41, 59, 0.8) !important;
+        border: 1px solid rgba(100, 116, 139, 0.35) !important;
         border-radius: 12px !important;
-        color: #8f2a5d !important;
+        color: #f1f5f9 !important;
     }
     .streamlit-expanderContent {
-        background: rgba(255, 246, 251, 0.6) !important;
-        border: 1px solid rgba(236, 116, 167, 0.18) !important;
+        background: rgba(15, 23, 34, 0.72) !important;
+        border: 1px solid rgba(100, 116, 139, 0.22) !important;
         border-top: none !important;
         border-radius: 0 0 12px 12px !important;
     }
 
     /* ── Metric cards ── */
     [data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.56);
-        border: 1px solid rgba(236, 116, 167, 0.25);
+        background: rgba(15, 23, 34, 0.8);
+        border: 1px solid rgba(100, 116, 139, 0.28);
         border-radius: 16px;
         padding: 1rem;
         backdrop-filter: blur(10px);
-        box-shadow: 0 6px 18px rgba(216, 90, 145, 0.16);
+        box-shadow: 0 8px 20px rgba(2, 6, 23, 0.45);
     }
-    [data-testid="stMetricValue"] { color: #8a2757 !important; font-weight: 700 !important; }
+    [data-testid="stMetricValue"] { color: #f8fafc !important; font-weight: 700 !important; }
 
     /* ── Progress bar ── */
     .stProgress > div > div > div {
-        background: linear-gradient(90deg, #f062a2, #ff96be) !important;
+        background: linear-gradient(90deg, #2563eb, #60a5fa) !important;
         border-radius: 99px;
     }
     .stProgress > div > div {
-        background: rgba(255, 255, 255, 0.45) !important;
+        background: rgba(15, 23, 34, 0.45) !important;
         border-radius: 99px;
     }
 
@@ -215,17 +168,17 @@ st.markdown("""
     .stAlert {
         border-radius: 12px !important;
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(236, 116, 167, 0.22) !important;
+        border: 1px solid rgba(100, 116, 139, 0.35) !important;
     }
 
     /* ── Divider ── */
-    hr { border-color: rgba(236, 116, 167, 0.26) !important; }
+    hr { border-color: rgba(148, 163, 184, 0.24) !important; }
 
     /* ── Sidebar ── */
     [data-testid="stSidebar"] {
-        background: rgba(255, 232, 243, 0.88) !important;
+        background: rgba(10, 15, 24, 0.9) !important;
         backdrop-filter: blur(24px);
-        border-right: 1px solid rgba(236, 116, 167, 0.25) !important;
+        border-right: 1px solid rgba(100, 116, 139, 0.25) !important;
     }
     [data-testid="stSidebar"] > div:first-child {
         background: transparent !important;
@@ -240,14 +193,14 @@ st.markdown("""
     }
     .avatar-container img {
         border-radius: 18px;
-        border: 2px solid rgba(236, 116, 167, 0.55);
-        box-shadow: 0 0 28px rgba(240, 98, 162, 0.36);
+        border: 2px solid rgba(96, 165, 250, 0.45);
+        box-shadow: 0 0 28px rgba(37, 99, 235, 0.3);
         width: 100%;
         object-fit: cover;
         transition: box-shadow 0.3s;
     }
     .avatar-name {
-        color: #952f62;
+        color: #dbeafe;
         font-size: 0.95rem;
         font-weight: 600;
         margin-top: 0.7rem;
@@ -258,36 +211,15 @@ st.markdown("""
     /* ── Code block ── */
     .stCodeBlock {
         border-radius: 12px !important;
-        border: 1px solid rgba(236, 116, 167, 0.24) !important;
+        border: 1px solid rgba(100, 116, 139, 0.25) !important;
     }
 
     /* ── Scrollbar ── */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(236, 116, 167, 0.42); border-radius: 99px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(236, 116, 167, 0.68); }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.42); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.68); }
 </style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div class="sakura-layer" aria-hidden="true">
-  <span class="sakura" style="--left:4%;--dur:16s;--delay:-2s;--size:14px"></span>
-  <span class="sakura" style="--left:10%;--dur:20s;--delay:-6s;--size:11px"></span>
-  <span class="sakura" style="--left:16%;--dur:18s;--delay:-11s;--size:13px"></span>
-  <span class="sakura" style="--left:23%;--dur:22s;--delay:-4s;--size:10px"></span>
-  <span class="sakura" style="--left:29%;--dur:19s;--delay:-14s;--size:12px"></span>
-  <span class="sakura" style="--left:35%;--dur:24s;--delay:-1s;--size:15px"></span>
-  <span class="sakura" style="--left:42%;--dur:17s;--delay:-9s;--size:11px"></span>
-  <span class="sakura" style="--left:48%;--dur:21s;--delay:-12s;--size:13px"></span>
-  <span class="sakura" style="--left:55%;--dur:26s;--delay:-7s;--size:16px"></span>
-  <span class="sakura" style="--left:61%;--dur:18s;--delay:-3s;--size:11px"></span>
-  <span class="sakura" style="--left:67%;--dur:23s;--delay:-15s;--size:14px"></span>
-  <span class="sakura" style="--left:73%;--dur:20s;--delay:-5s;--size:12px"></span>
-  <span class="sakura" style="--left:79%;--dur:19s;--delay:-10s;--size:10px"></span>
-  <span class="sakura" style="--left:85%;--dur:22s;--delay:-8s;--size:13px"></span>
-  <span class="sakura" style="--left:91%;--dur:24s;--delay:-13s;--size:15px"></span>
-  <span class="sakura" style="--left:96%;--dur:17s;--delay:-16s;--size:11px"></span>
-</div>
 """, unsafe_allow_html=True)
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
