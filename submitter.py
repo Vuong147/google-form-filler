@@ -83,7 +83,17 @@ def _precompute_checkbox_near_exact(options: list, probs: list, n: int) -> list:
         return []
 
     clamped = [max(0.0, min(1.0, float(p))) for p in probs]
-    target_counts = _target_counts(clamped, n)
+
+    # Checkbox: mỗi option là xác suất độc lập theo tổng số submit (không chuẩn hóa theo tổng các option).
+    target_counts = []
+    for p in clamped:
+        raw = p * n
+        base = int(raw)
+        frac = raw - base
+        if frac > 0.5 or (frac == 0.5 and random.random() < 0.5):
+            base += 1
+        target_counts.append(max(0, min(n, base)))
+
     picked_sets = [set() for _ in range(n)]
 
     for opt, cnt in zip(options, target_counts):
@@ -97,19 +107,7 @@ def _precompute_checkbox_near_exact(options: list, probs: list, n: int) -> list:
         for i in idx_order[:cnt]:
             picked_sets[i].add(opt)
 
-    # Nếu có submission rỗng, ưu tiên chuyển từ submission có >1 đáp án để giữ nguyên tổng count.
-    empty_idxs = [i for i, s in enumerate(picked_sets) if not s]
-    for empty_i in empty_idxs:
-        donor_i = next((j for j, s in enumerate(picked_sets) if len(s) > 1), None)
-        if donor_i is not None:
-            moved_opt = random.choice(tuple(picked_sets[donor_i]))
-            picked_sets[donor_i].remove(moved_opt)
-            picked_sets[empty_i].add(moved_opt)
-        elif options:
-            # Trường hợp bất khả kháng (tổng target count < n), thêm 1 option để tránh bỏ trống.
-            picked_sets[empty_i].add(random.choice(options))
-
-    output = [list(s) if s else [random.choice(options)] for s in picked_sets]
+    output = [list(s) for s in picked_sets]
     random.shuffle(output)
     return output
 
