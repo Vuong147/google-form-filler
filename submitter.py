@@ -43,6 +43,75 @@ def is_success(html: str) -> bool:
     return True
 
 
+def _target_counts(weights: list, n: int) -> list:
+    if n <= 0 or not weights:
+        return [0] * len(weights)
+
+    total = float(sum(weights))
+    if total <= 0:
+        return [0] * len(weights)
+
+    normalized = [max(0.0, float(w)) / total for w in weights]
+    raw_counts = [w * n for w in normalized]
+    floors = [int(c) for c in raw_counts]
+    deficit = n - sum(floors)
+
+    remainders = sorted(
+        range(len(raw_counts)),
+        key=lambda k: raw_counts[k] - floors[k],
+        reverse=True,
+    )
+    for k in remainders[:deficit]:
+        floors[k] += 1
+    return floors
+
+
+def _build_exact_pool(items: list, weights: list, n: int) -> list:
+    counts = _target_counts(weights, n)
+    pool = []
+    for item, cnt in zip(items, counts):
+        if cnt > 0:
+            pool.extend([item] * cnt)
+    random.shuffle(pool)
+    return pool
+
+
+def _precompute_checkbox_near_exact(options: list, probs: list, n: int) -> list:
+    if n <= 0 or not options or not probs:
+        return []
+
+    clamped = [max(0.0, min(1.0, float(p))) for p in probs]
+    target_counts = _target_counts(clamped, n)
+    picked_sets = [set() for _ in range(n)]
+
+    for opt, cnt in zip(options, target_counts):
+        if cnt <= 0:
+            continue
+
+        idx_order = list(range(n))
+        random.shuffle(idx_order)
+        idx_order.sort(key=lambda i: len(picked_sets[i]))
+
+        for i in idx_order[:cnt]:
+            picked_sets[i].add(opt)
+
+    # Nếu có submission rỗng, ưu tiên chuyển từ submission có >1 đáp án để giữ nguyên tổng count.
+    empty_idxs = [i for i, s in enumerate(picked_sets) if not s]
+    for empty_i in empty_idxs:
+        donor_i = next((j for j, s in enumerate(picked_sets) if len(s) > 1), None)
+        if donor_i is not None:
+            moved_opt = random.choice(tuple(picked_sets[donor_i]))
+            picked_sets[donor_i].remove(moved_opt)
+            picked_sets[empty_i].add(moved_opt)
+        elif options:
+            # Trường hợp bất khả kháng (tổng target count < n), thêm 1 option để tránh bỏ trống.
+            picked_sets[empty_i].add(random.choice(options))
+
+    output = [list(s) if s else [random.choice(options)] for s in picked_sets]
+    random.shuffle(output)
+    return output
+
+
 def precompute_answers(questions: list, n: int) -> None:
     """Pre-compute exact answer distribution across n submissions.
     Modifies questions in-place (adds '_precomputed' key).
@@ -52,29 +121,23 @@ def precompute_answers(questions: list, n: int) -> None:
         q_type = q.get("type")
         options = q.get("options", [])
         ratios = q.get("ratios", [])
+        answers = q.get("answers", [])
 
         if q_type in ("multiple_choice", "dropdown", "linear_scale") and options and ratios:
-            raw_counts = [r * n for r in ratios]
-            floors = [int(c) for c in raw_counts]
-            deficit = n - sum(floors)
-            remainders = sorted(
-                range(len(raw_counts)),
-                key=lambda k: raw_counts[k] - floors[k],
-                reverse=True
-            )
-            for k in remainders[:deficit]:
-                floors[k] += 1
-            pool = []
-            for opt, cnt in zip(options, floors):
-                pool.extend([opt] * cnt)
-            random.shuffle(pool)
-            q["_precomputed"] = pool
+            q["_precomputed"] = _build_exact_pool(options, ratios, n)
 
         elif q_type == "checkbox" and options and ratios:
-            q["_precomputed"] = [
-                [opt for opt, prob in zip(options, ratios) if random.random() < prob] or [random.choice(options)]
-                for _ in range(n)
-            ]
+            q["_precomputed"] = _precompute_checkbox_near_exact(options, ratios, n)
+
+        elif q_type in ("short_text", "paragraph") and answers and ratios and not q.get("per_submission", False):
+            q["_precomputed"] = _build_exact_pool(answers, ratios, n)
+
+        elif q_type in ("date", "time") and answers:
+            if ratios and len(ratios) == len(answers):
+                q["_precomputed"] = _build_exact_pool(answers, ratios, n)
+            else:
+                equal = [1.0] * len(answers)
+                q["_precomputed"] = _build_exact_pool(answers, equal, n)
 
 
 def pick_answer(question: dict, idx: int = 0):
@@ -108,11 +171,15 @@ def pick_answer(question: dict, idx: int = 0):
             return ""
         if per_submission:
             return answers[idx % len(answers)]
+        if precomputed:
+            return precomputed[idx % len(precomputed)]
         return random.choices(answers, weights=ratios, k=1)[0]
 
     elif q_type in ("date", "time"):
         if not answers:
             return ""
+        if precomputed:
+            return precomputed[idx % len(precomputed)]
         return random.choice(answers)
 
     return None
