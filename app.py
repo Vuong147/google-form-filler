@@ -420,20 +420,31 @@ def page_url():
     """, unsafe_allow_html=True)
     st.divider()
 
-    st.markdown("**🌐 Liên kết mạng xã hội**")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown("[Instagram](https://www.instagram.com/hvgnoul_/)")
-    with c2:
-        st.markdown("[TikTok](https://www.tiktok.com/@hvunn_)")
-    with c3:
-        st.markdown("[Facebook](https://www.facebook.com/youngboist/)")
-    st.divider()
-
     url = st.text_input("🔗 Nhập URL Google Form",
                         placeholder="https://docs.google.com/forms/d/...")
 
-    if st.button("Phân tích Form", type="primary", disabled=not url.strip()):
+    analyze_clicked = st.button("Phân tích Form", type="primary", disabled=not url.strip())
+
+    st.divider()
+    st.markdown("**🌐 Liên kết mạng xã hội**")
+    st.markdown(
+        """
+        <div style="display:flex;justify-content:center;align-items:center;gap:18px;margin:0.25rem 0 0.35rem 0;">
+            <a href="https://www.instagram.com/hvgnoul_/" target="_blank" style="display:inline-flex;">
+                <img src="https://cdn.simpleicons.org/instagram/E4405F" alt="Instagram" width="28" height="28" />
+            </a>
+            <a href="https://www.tiktok.com/@hvunn_" target="_blank" style="display:inline-flex;">
+                <img src="https://cdn.simpleicons.org/tiktok/FFFFFF" alt="TikTok" width="28" height="28" />
+            </a>
+            <a href="https://www.facebook.com/youngboist/" target="_blank" style="display:inline-flex;">
+                <img src="https://cdn.simpleicons.org/facebook/1877F2" alt="Facebook" width="28" height="28" />
+            </a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if analyze_clicked:
         with st.spinner("Đang phân tích form..."):
             try:
                 u = url.strip().rstrip("/")
