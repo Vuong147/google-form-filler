@@ -257,6 +257,19 @@ st.markdown("""
         text-align: center;
         letter-spacing: 0.3px;
     }
+    .avatar-music {
+        width: 100%;
+        margin-top: 0.55rem;
+        padding: 0.32rem 0.42rem;
+        background: rgba(15, 23, 34, 0.86);
+        border: 1px solid rgba(34, 197, 94, 0.25);
+        border-radius: 12px;
+    }
+    .avatar-music audio {
+        width: 100%;
+        height: 34px;
+        border-radius: 10px;
+    }
 
     /* ── Spotify-like Music Card ── */
     .music-card {
@@ -374,6 +387,7 @@ def page_password():
 def _render_sidebar():
     with st.sidebar:
         # Ảnh avatar
+        music_path = os.path.join(ASSETS_DIR, "music.mp3")
         avatar_extensions = ["jpg", "jpeg", "png", "webp"]
         avatar_path = None
         for ext in avatar_extensions:
@@ -385,6 +399,21 @@ def _render_sidebar():
         if avatar_path:
             st.markdown('<div class="avatar-container">', unsafe_allow_html=True)
             st.image(avatar_path, use_container_width=True)
+
+            if os.path.exists(music_path):
+                with open(music_path, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode()
+                st.markdown(
+                    f"""
+                    <div class="avatar-music">
+                        <audio autoplay loop controls>
+                            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+                        </audio>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
             st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.markdown('<div class="avatar-container"><div style="color:#a78bfa;font-size:3rem">👤</div></div>',
@@ -393,25 +422,7 @@ def _render_sidebar():
         st.markdown('<div class="avatar-name">🤖 Tool của a zai Hàn Quốc</div>', unsafe_allow_html=True)
         st.divider()
 
-        # Nhạc nền autoplay
-        music_path = os.path.join(ASSETS_DIR, "music.mp3")
-        if os.path.exists(music_path):
-            with open(music_path, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-            st.markdown(
-                f"""
-                <div class="music-card">
-                    <div class="music-title">🎵 Background Music</div>
-                    <div class="music-subtitle">Now playing • Tool của a zai Hàn Quốc</div>
-                    <audio autoplay loop controls>
-                        <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-                    </audio>
-                    <div class="music-foot">Spotify vibe</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        else:
+        if not os.path.exists(music_path):
             st.caption("⚠️ Chưa có file nhạc.\nThêm `assets/music.mp3` vào project.")
 
         st.divider()
