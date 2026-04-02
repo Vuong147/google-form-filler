@@ -1,5 +1,7 @@
 import base64
 import datetime
+import hashlib
+import json
 import math
 import os
 import random
@@ -381,9 +383,75 @@ st.markdown("""
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 APP_PASSWORD = "2707"
+DEVICE_REGISTRY_PATH = os.path.join(os.path.dirname(__file__), "device_registry.json")
 
 SUPPORTED_TYPES = ("multiple_choice", "dropdown", "checkbox", "linear_scale",
                    "short_text", "paragraph", "date", "time")
+
+
+def _get_device_id() -> str:
+    headers = {}
+    try:
+        headers = dict(st.context.headers)
+    except Exception:
+        headers = {}
+
+    user_agent = headers.get("User-Agent", "")
+    accept_lang = headers.get("Accept-Language", "")
+    ch_platform = headers.get("Sec-CH-UA-Platform", "")
+    forwarded_for = headers.get("X-Forwarded-For", "")
+    client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else ""
+
+    fingerprint_raw = "|".join([user_agent, accept_lang, ch_platform, client_ip])
+    if not fingerprint_raw.strip():
+        fingerprint_raw = "unknown-device"
+
+    return hashlib.sha256(fingerprint_raw.encode("utf-8")).hexdigest()[:20]
+
+
+def _load_device_registry() -> dict:
+    default_data = {"allowed_devices": [], "blocked_devices": []}
+    if not os.path.exists(DEVICE_REGISTRY_PATH):
+        return default_data
+    try:
+        with open(DEVICE_REGISTRY_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return default_data
+        data.setdefault("allowed_devices", [])
+        data.setdefault("blocked_devices", [])
+        return data
+    except Exception:
+        return default_data
+
+
+def _save_device_registry(data: dict) -> None:
+    try:
+        with open(DEVICE_REGISTRY_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def _authorize_device() -> tuple:
+    device_id = _get_device_id()
+    registry = _load_device_registry()
+
+    allowed = set(registry.get("allowed_devices", []))
+    blocked = set(registry.get("blocked_devices", []))
+
+    if device_id in blocked:
+        return False, device_id, "Thiết bị này đã bị chặn."
+
+    if not allowed:
+        registry["allowed_devices"] = [device_id]
+        _save_device_registry(registry)
+        return True, device_id, ""
+
+    if device_id not in allowed:
+        return False, device_id, "Thiết bị chưa được cấp quyền. Liên hệ admin để mở khóa thiết bị này."
+
+    return True, device_id, ""
 
 
 # ── Init session state ────────────────────────────────────────────────────────
@@ -419,8 +487,14 @@ def page_password():
         pwd = st.text_input("Password", type="password", key="password_input")
         if st.button("Mở tool", type="primary", use_container_width=True):
             if pwd == APP_PASSWORD:
-                st.session_state.authenticated = True
-                st.rerun()
+                ok, device_id, message = _authorize_device()
+                if ok:
+                    st.session_state.authenticated = True
+                    st.session_state.device_id = device_id
+                    st.rerun()
+                else:
+                    st.error(f"❌ {message}")
+                    st.code(device_id)
             else:
                 st.error("❌ Sai mật khẩu")
 
