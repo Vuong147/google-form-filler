@@ -49,6 +49,37 @@ st.markdown("""
 
     .stApp > div { position: relative; z-index: 1; }
 
+    .sakura-layer {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+    }
+    .sakura {
+        position: absolute;
+        top: -12vh;
+        left: var(--left);
+        width: var(--size);
+        height: calc(var(--size) * 0.78);
+        background: linear-gradient(135deg, #ffeef6 0%, #ff9cc5 80%);
+        border-radius: 72% 0 72% 0;
+        opacity: 0.62;
+        filter: drop-shadow(0 1px 2px rgba(255, 150, 200, 0.25));
+        animation: sakura-fall var(--dur) linear infinite;
+        animation-delay: var(--delay);
+    }
+    .sakura::after {
+        content: '';
+        position: absolute;
+        width: 55%;
+        height: 55%;
+        top: 22%;
+        left: 24%;
+        border-radius: 72% 0 72% 0;
+        background: rgba(255, 235, 246, 0.78);
+    }
+
     @keyframes blob1 {
         0%   { transform: translate(0, 0) scale(1); }
         50%  { transform: translate(5%, 6%) scale(1.08); }
@@ -58,6 +89,21 @@ st.markdown("""
         0%   { transform: translate(0, 0) scale(1); }
         50%  { transform: translate(-6%, -3%) scale(1.07); }
         100% { transform: translate(3%, 4%) scale(0.94); }
+    }
+    @keyframes sakura-fall {
+        0% {
+            transform: translate3d(0, -12vh, 0) rotate(0deg);
+            opacity: 0;
+        }
+        15% { opacity: 0.62; }
+        50% {
+            transform: translate3d(16px, 52vh, 0) rotate(155deg);
+            opacity: 0.6;
+        }
+        100% {
+            transform: translate3d(-14px, 112vh, 0) rotate(325deg);
+            opacity: 0.08;
+        }
     }
     /* ── Typography ── */
     h1 { color: #f8fafc !important; letter-spacing: -0.5px; font-weight: 700 !important; }
@@ -220,6 +266,22 @@ st.markdown("""
     ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.42); border-radius: 99px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.68); }
 </style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="sakura-layer" aria-hidden="true">
+  <span class="sakura" style="--left:5%;--dur:18s;--delay:-2s;--size:12px"></span>
+  <span class="sakura" style="--left:13%;--dur:22s;--delay:-7s;--size:10px"></span>
+  <span class="sakura" style="--left:21%;--dur:20s;--delay:-12s;--size:11px"></span>
+  <span class="sakura" style="--left:30%;--dur:24s;--delay:-4s;--size:13px"></span>
+  <span class="sakura" style="--left:39%;--dur:19s;--delay:-10s;--size:11px"></span>
+  <span class="sakura" style="--left:48%;--dur:25s;--delay:-6s;--size:14px"></span>
+  <span class="sakura" style="--left:57%;--dur:21s;--delay:-14s;--size:11px"></span>
+  <span class="sakura" style="--left:66%;--dur:23s;--delay:-8s;--size:12px"></span>
+  <span class="sakura" style="--left:75%;--dur:20s;--delay:-15s;--size:10px"></span>
+  <span class="sakura" style="--left:84%;--dur:24s;--delay:-5s;--size:13px"></span>
+  <span class="sakura" style="--left:92%;--dur:19s;--delay:-11s;--size:11px"></span>
+</div>
 """, unsafe_allow_html=True)
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
