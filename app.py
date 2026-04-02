@@ -421,15 +421,13 @@ def page_url():
     st.divider()
 
     st.markdown("**🌐 Liên kết mạng xã hội**")
-    st.markdown(
-        """
-| Nền tảng | Link |
-|---|---|
-| Instagram | [@hvgnoul_](https://www.instagram.com/hvgnoul_/) |
-| TikTok | [@hvunn_](https://www.tiktok.com/@hvunn_) |
-| Facebook | [youngboist](https://www.facebook.com/youngboist/) |
-        """
-    )
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("[Instagram](https://www.instagram.com/hvgnoul_/)")
+    with c2:
+        st.markdown("[TikTok](https://www.tiktok.com/@hvunn_)")
+    with c3:
+        st.markdown("[Facebook](https://www.facebook.com/youngboist/)")
     st.divider()
 
     url = st.text_input("🔗 Nhập URL Google Form",
