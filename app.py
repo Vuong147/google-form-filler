@@ -228,6 +228,9 @@ st.markdown("""
     }
     [data-testid="stSidebar"] > div:first-child {
         background: transparent !important;
+        overflow-y: auto !important;
+        height: 100vh;
+        padding-bottom: 1.25rem;
     }
 
     /* ── Avatar ── */
@@ -235,13 +238,14 @@ st.markdown("""
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 1.5rem 0 1rem 0;
+        padding: 0.9rem 0 0.6rem 0;
     }
     .avatar-container img {
         border-radius: 18px;
         border: 2px solid rgba(96, 165, 250, 0.45);
         box-shadow: 0 0 28px rgba(37, 99, 235, 0.3);
         width: 100%;
+        max-height: 220px;
         object-fit: cover;
         transition: box-shadow 0.3s;
     }
@@ -259,9 +263,9 @@ st.markdown("""
         background: linear-gradient(155deg, rgba(18, 18, 18, 0.96), rgba(28, 28, 28, 0.95));
         border: 1px solid rgba(34, 197, 94, 0.25);
         border-radius: 16px;
-        padding: 0.95rem 0.95rem 0.8rem 0.95rem;
+        padding: 0.78rem 0.82rem 0.66rem 0.82rem;
         box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
-        margin-top: 0.35rem;
+        margin-top: 0.1rem;
     }
     .music-title {
         color: #f8fafc;
@@ -272,8 +276,8 @@ st.markdown("""
     }
     .music-subtitle {
         color: #94a3b8;
-        font-size: 0.78rem;
-        margin-bottom: 0.55rem;
+        font-size: 0.75rem;
+        margin-bottom: 0.4rem;
     }
     .music-card audio {
         width: 100%;
