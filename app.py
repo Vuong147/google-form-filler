@@ -816,37 +816,17 @@ def page_configure():
                 cfg["ratios"] = probs
 
             elif q["type"] in ("short_text", "paragraph"):
-                per_sub = False
-                if st.session_state.n_submissions > 1:
-                    mode = st.radio("Chế độ:",
-                                    ["Pool (random chọn)",
-                                     f"Theo thứ tự ({st.session_state.n_submissions} câu)"],
-                                    key=f"q{i}_mode", horizontal=True)
-                    per_sub = "thứ tự" in mode
-
-                if per_sub:
-                    answers = []
-                    st.write(f"Nhập {st.session_state.n_submissions} câu trả lời:")
-                    for k in range(st.session_state.n_submissions):
-                        ans = st.text_input(f"Lần {k+1}", key=f"q{i}_s{k}")
-                        answers.append(ans)
-                    if any(not a.strip() for a in answers):
-                        st.warning("⚠️ Không được để trống")
-                        valid = False
-                    cfg["answers"] = answers
-                    cfg["ratios"] = [1.0] * len(answers)
-                    cfg["per_submission"] = True
-                else:
-                    raw = st.text_area("Câu trả lời mẫu (mỗi dòng 1 câu):",
-                                       key=f"q{i}_pool",
-                                       placeholder="Câu trả lời 1\nCâu trả lời 2\n...")
-                    answers = [a.strip() for a in raw.splitlines() if a.strip()]
-                    if not answers:
-                        st.warning("⚠️ Cần ít nhất 1 câu trả lời")
-                        valid = False
-                    cfg["answers"] = answers
-                    cfg["ratios"] = ([1.0 / len(answers)] * len(answers)) if answers else []
-                    cfg["per_submission"] = False
+                answers = []
+                st.write(f"Nhập {st.session_state.n_submissions} câu trả lời (mỗi lần submit dùng 1 câu):")
+                for k in range(st.session_state.n_submissions):
+                    ans = st.text_input(f"Lần {k+1}", key=f"q{i}_s{k}")
+                    answers.append(ans)
+                if any(not a.strip() for a in answers):
+                    st.warning("⚠️ Không được để trống")
+                    valid = False
+                cfg["answers"] = answers
+                cfg["ratios"] = [1.0] * len(answers)
+                cfg["per_submission"] = True
 
             elif q["type"] in ("date", "time"):
                 fmt = "YYYY-MM-DD" if q["type"] == "date" else "HH:MM"
