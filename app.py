@@ -443,13 +443,11 @@ def _authorize_device() -> tuple:
     if device_id in blocked:
         return False, device_id, "Thiết bị này đã bị chặn."
 
-    if not allowed:
-        registry["allowed_devices"] = [device_id]
-        _save_device_registry(registry)
-        return True, device_id, ""
-
     if device_id not in allowed:
-        return False, device_id, "Thiết bị chưa được cấp quyền. Liên hệ admin để mở khóa thiết bị này."
+        allowed.add(device_id)
+        registry["allowed_devices"] = list(allowed)
+        registry["blocked_devices"] = list(blocked)
+        _save_device_registry(registry)
 
     return True, device_id, ""
 
