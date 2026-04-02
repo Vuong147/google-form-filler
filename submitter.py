@@ -127,7 +127,11 @@ def _guess_page_count(questions: list) -> int:
             continue
 
         routes = q.get("option_routes") or {}
+        override_routes = q.get("option_routes_override") or {}
         for route in routes.values():
+            if isinstance(route, int):
+                max_idx = max(max_idx, route)
+        for route in override_routes.values():
             if isinstance(route, int):
                 max_idx = max(max_idx, route)
     return max(1, max_idx + 1)
@@ -174,14 +178,17 @@ def _derive_branch_history(questions: list, picked_by_entry: dict, page_count: i
         submit_now = False
         for q in page_questions:
             routes = q.get("option_routes") or {}
-            if not routes:
+            overrides = q.get("option_routes_override") or {}
+            active_routes = dict(routes)
+            active_routes.update(overrides)
+            if not active_routes:
                 continue
 
             answer = picked_by_entry.get(str(q["entry_id"]))
             if answer is None or isinstance(answer, list):
                 continue
 
-            route = routes.get(answer)
+            route = active_routes.get(answer)
             if route == "__submit__":
                 submit_now = True
                 break

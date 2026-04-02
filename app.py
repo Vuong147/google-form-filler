@@ -374,6 +374,17 @@ def page_configure():
 
     questions = st.session_state.questions
     supported = [q for q in questions if q["type"] in SUPPORTED_TYPES]
+
+    page_total = 1
+    for qq in questions:
+        try:
+            page_total = max(page_total, int(qq.get("page_index", 0)) + 1)
+        except Exception:
+            pass
+        for route in (qq.get("option_routes") or {}).values():
+            if isinstance(route, int):
+                page_total = max(page_total, route + 1)
+
     st.info(f"✅ Tìm thấy **{len(questions)}** câu hỏi ({len(supported)} loại được hỗ trợ)")
 
     n = st.number_input("Số lần submit", min_value=1, max_value=10000,
@@ -413,6 +424,50 @@ def page_configure():
                     for j, (opt, r) in enumerate(zip(q["options"], ratios)):
                         with pct_cols[j % 4]:
                             st.caption(f"→ **{r/total*100:.1f}%**")
+
+                if q["type"] in ("multiple_choice", "dropdown"):
+                    st.caption("Điều kiện nhảy trang (tuỳ chọn):")
+                    base_routes = cfg.get("option_routes") or {}
+                    overrides = {}
+                    choice_items = ["Theo form gốc", "Trang kế tiếp", "Kết thúc form"]
+                    choice_items.extend([f"Nhảy tới trang {p}" for p in range(1, page_total + 1)])
+
+                    cur_page = int(q.get("page_index", 0))
+                    next_page_label = f"Nhảy tới trang {cur_page + 2}"
+
+                    for j, opt in enumerate(q["options"]):
+                        route_default = base_routes.get(opt)
+                        default_choice = "Theo form gốc"
+
+                        if route_default == "__submit__":
+                            default_choice = "Kết thúc form"
+                        elif isinstance(route_default, int):
+                            if route_default == cur_page + 1:
+                                default_choice = "Trang kế tiếp"
+                            else:
+                                label = f"Nhảy tới trang {route_default + 1}"
+                                if label in choice_items:
+                                    default_choice = label
+
+                        key = f"q{i}_route_{j}"
+                        selected = st.selectbox(
+                            f"Nếu chọn '{opt}'",
+                            choice_items,
+                            index=choice_items.index(default_choice),
+                            key=key,
+                        )
+
+                        if selected == "Theo form gốc":
+                            continue
+                        if selected == "Kết thúc form":
+                            overrides[opt] = "__submit__"
+                        elif selected == "Trang kế tiếp":
+                            overrides[opt] = cur_page + 1
+                        elif selected.startswith("Nhảy tới trang "):
+                            page_no = int(selected.split(" ")[-1])
+                            overrides[opt] = max(0, page_no - 1)
+
+                    cfg["option_routes_override"] = overrides
 
             elif q["type"] == "checkbox" and q["options"]:
                 st.write("Xác suất chọn mỗi ô (%):")
