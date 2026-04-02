@@ -71,6 +71,16 @@ def parse_form(url: str) -> tuple:
     except (IndexError, TypeError):
         raise ValueError("Cấu trúc form không nhận dạng được.")
 
+    section_id_to_page = {}
+    page_index = 0
+    for item in raw_questions:
+        try:
+            if item[3] == 8:
+                page_index += 1
+                section_id_to_page[item[0]] = page_index
+        except Exception:
+            continue
+
     questions = []
     page_index = 0
 
@@ -129,10 +139,25 @@ def parse_form(url: str) -> tuple:
             entry_id = first_entry[0]
             options = []
 
+            option_routes = {}
             if q_type in ("multiple_choice", "dropdown", "checkbox"):
                 try:
                     if first_entry[1]:
-                        options = [o[0] for o in first_entry[1] if o and o[0]]
+                        for o in first_entry[1]:
+                            if not o or not o[0]:
+                                continue
+                            opt_text = o[0]
+                            options.append(opt_text)
+                            if q_type in ("multiple_choice", "dropdown") and len(o) > 2:
+                                route_raw = o[2]
+                                if route_raw == -1:
+                                    option_routes[opt_text] = "__submit__"
+                                elif route_raw is None or route_raw == -2:
+                                    option_routes[opt_text] = page_index + 1
+                                elif isinstance(route_raw, int):
+                                    target_page = section_id_to_page.get(route_raw)
+                                    if target_page is not None:
+                                        option_routes[opt_text] = target_page
                 except Exception:
                     pass
 
@@ -151,6 +176,7 @@ def parse_form(url: str) -> tuple:
                 "entry_id": str(entry_id),
                 "page_index": page_index,
                 "options": options,
+                "option_routes": option_routes,
                 "ratios": [],
                 "answers": [],
             })

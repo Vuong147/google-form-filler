@@ -125,6 +125,11 @@ def _guess_page_count(questions: list) -> int:
             max_idx = max(max_idx, int(q.get("page_index", 0)))
         except Exception:
             continue
+
+        routes = q.get("option_routes") or {}
+        for route in routes.values():
+            if isinstance(route, int):
+                max_idx = max(max_idx, route)
     return max(1, max_idx + 1)
 
 
@@ -135,7 +140,71 @@ def _candidate_page_histories(page_count: int) -> list:
     return histories
 
 
-def build_payload(questions: list, idx: int = 0, fbzx: str = None,
+def _pick_answers_for_submission(questions: list, idx: int = 0) -> tuple:
+    picked_by_entry = {}
+    chosen = {}
+
+    for q in questions:
+        if q.get("skip"):
+            continue
+
+        answer = pick_answer(q, idx)
+        if answer is None:
+            continue
+
+        entry_id = str(q["entry_id"])
+        picked_by_entry[entry_id] = answer
+
+        if isinstance(answer, list):
+            chosen[q["text"]] = answer if answer else ["(không chọn)"]
+        else:
+            chosen[q["text"]] = answer
+
+    return picked_by_entry, chosen
+
+
+def _derive_branch_history(questions: list, picked_by_entry: dict, page_count: int) -> str:
+    visited = [0]
+    current_page = 0
+
+    for _ in range(max(1, page_count + 2)):
+        page_questions = [q for q in questions if int(q.get("page_index", 0)) == current_page]
+
+        jump_target = None
+        submit_now = False
+        for q in page_questions:
+            routes = q.get("option_routes") or {}
+            if not routes:
+                continue
+
+            answer = picked_by_entry.get(str(q["entry_id"]))
+            if answer is None or isinstance(answer, list):
+                continue
+
+            route = routes.get(answer)
+            if route == "__submit__":
+                submit_now = True
+                break
+            if isinstance(route, int):
+                jump_target = route
+                break
+
+        if submit_now:
+            break
+
+        next_page = jump_target if jump_target is not None else current_page + 1
+        if next_page >= page_count:
+            break
+        if visited and visited[-1] == next_page:
+            break
+
+        visited.append(next_page)
+        current_page = next_page
+
+    return ",".join(str(i) for i in visited)
+
+
+def build_payload(questions: list, picked_by_entry: dict, fbzx: str = None,
                   page_history: str = "0") -> tuple:
     data = {"fvv": "1", "pageHistory": page_history}
     if fbzx:
@@ -143,14 +212,13 @@ def build_payload(questions: list, idx: int = 0, fbzx: str = None,
         data["draftResponse"] = json.dumps([None, None, fbzx], separators=(",", ":"))
     else:
         data["fbzx"] = str(random.randint(-9_000_000_000_000_000_000, 9_000_000_000_000_000_000))
-    chosen = {}
 
     for q in questions:
         if q.get("skip"):
             continue
 
         entry_key = f"entry.{q['entry_id']}"
-        answer = pick_answer(q, idx)
+        answer = picked_by_entry.get(str(q["entry_id"]))
 
         if answer is None:
             continue
@@ -158,12 +226,10 @@ def build_payload(questions: list, idx: int = 0, fbzx: str = None,
         if isinstance(answer, list):
             if answer:
                 data[entry_key] = answer
-            chosen[q["text"]] = answer if answer else ["(không chọn)"]
         else:
             data[entry_key] = answer
-            chosen[q["text"]] = answer
 
-    return data, chosen
+    return data
 
 
 def submit_form(form_id: str, questions: list, timeout: int = 15,
@@ -171,8 +237,20 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
                 fbzx: str = None) -> tuple:
     url = SUBMIT_URL_TEMPLATE.format(form_id=form_id)
     page_count = _guess_page_count(questions)
-    histories = _candidate_page_histories(page_count)
-    chosen = {}
+    picked_by_entry, chosen = _pick_answers_for_submission(questions, submission_index)
+
+    branch_history = _derive_branch_history(questions, picked_by_entry, page_count)
+    histories = []
+    if branch_history:
+        histories.append(branch_history)
+    histories.extend(_candidate_page_histories(page_count))
+
+    dedup_histories = []
+    seen = set()
+    for h in histories:
+        if h not in seen:
+            dedup_histories.append(h)
+            seen.add(h)
 
     proxies = None
     if proxy:
@@ -180,10 +258,10 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
 
     try:
         first_debug = ""
-        for page_history in histories:
-            payload, chosen = build_payload(
+        for page_history in dedup_histories:
+            payload = build_payload(
                 questions,
-                submission_index,
+                picked_by_entry,
                 fbzx=fbzx,
                 page_history=page_history,
             )
