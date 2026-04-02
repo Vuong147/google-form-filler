@@ -821,9 +821,6 @@ def page_configure():
                 for k in range(st.session_state.n_submissions):
                     ans = st.text_input(f"Lần {k+1}", key=f"q{i}_s{k}")
                     answers.append(ans)
-                if any(not a.strip() for a in answers):
-                    st.warning("⚠️ Không được để trống")
-                    valid = False
                 cfg["answers"] = answers
                 cfg["ratios"] = [1.0] * len(answers)
                 cfg["per_submission"] = True
