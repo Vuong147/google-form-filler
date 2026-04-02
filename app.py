@@ -377,9 +377,9 @@ def _render_sidebar():
 
         st.divider()
         st.markdown("**🌐 Liên kết mạng xã hội**")
-        st.markdown("- [Instagram](https://instagram.com)")
-        st.markdown("- [TikTok](https://www.tiktok.com)")
-        st.markdown("- [Facebook](https://facebook.com)")
+        st.markdown("- [Instagram](https://www.instagram.com/hvgnoul_/)")
+        st.markdown("- [TikTok](https://www.tiktok.com/@hvunn_)")
+        st.markdown("- [Facebook](https://www.facebook.com/youngboist/)")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
