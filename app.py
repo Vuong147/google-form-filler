@@ -254,6 +254,42 @@ st.markdown("""
         letter-spacing: 0.3px;
     }
 
+    /* ── Spotify-like Music Card ── */
+    .music-card {
+        background: linear-gradient(155deg, rgba(18, 18, 18, 0.96), rgba(28, 28, 28, 0.95));
+        border: 1px solid rgba(34, 197, 94, 0.25);
+        border-radius: 16px;
+        padding: 0.95rem 0.95rem 0.8rem 0.95rem;
+        box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+        margin-top: 0.35rem;
+    }
+    .music-title {
+        color: #f8fafc;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        margin-bottom: 0.1rem;
+    }
+    .music-subtitle {
+        color: #94a3b8;
+        font-size: 0.78rem;
+        margin-bottom: 0.55rem;
+    }
+    .music-card audio {
+        width: 100%;
+        border-radius: 12px;
+        outline: none;
+        filter: saturate(1.08) contrast(1.03);
+    }
+    .music-foot {
+        margin-top: 0.45rem;
+        color: #22c55e;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+    }
+
     /* ── Code block ── */
     .stCodeBlock {
         border-radius: 12px !important;
@@ -356,13 +392,19 @@ def _render_sidebar():
         # Nhạc nền autoplay
         music_path = os.path.join(ASSETS_DIR, "music.mp3")
         if os.path.exists(music_path):
-            st.markdown("**🎵 Nhạc nền**")
             with open(music_path, "rb") as f:
                 b64 = base64.b64encode(f.read()).decode()
             st.markdown(
-                f'<audio autoplay loop controls style="width:100%;margin-top:4px">'
-                f'<source src="data:audio/mp3;base64,{b64}" type="audio/mp3">'
-                f'</audio>',
+                f"""
+                <div class="music-card">
+                    <div class="music-title">🎵 Background Music</div>
+                    <div class="music-subtitle">Now playing • Tool của a zai Hàn Quốc</div>
+                    <audio autoplay loop controls>
+                        <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+                    </audio>
+                    <div class="music-foot">Spotify vibe</div>
+                </div>
+                """,
                 unsafe_allow_html=True
             )
         else:
