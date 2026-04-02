@@ -231,6 +231,32 @@ st.markdown("""
         overflow-y: auto !important;
         height: 100vh;
         padding-bottom: 1.25rem;
+        position: relative;
+    }
+    .sidebar-snow {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+    }
+    .sidebar-snow span {
+        position: absolute;
+        top: -10%;
+        left: var(--x);
+        width: var(--s);
+        height: var(--s);
+        background: rgba(255, 255, 255, 0.88);
+        border-radius: 50%;
+        box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+        animation: avatar-snow-fall var(--d) linear infinite;
+        animation-delay: var(--delay);
+    }
+    [data-testid="stSidebar"] .block-container,
+    [data-testid="stSidebar"] .stMarkdown,
+    [data-testid="stSidebar"] [data-testid="stImage"] {
+        position: relative;
+        z-index: 1;
     }
 
     /* ── Avatar ── */
@@ -240,7 +266,6 @@ st.markdown("""
         align-items: center;
         padding: 0.9rem 0 0.6rem 0;
         position: relative;
-        overflow: hidden;
         border-radius: 18px;
     }
     .avatar-container img {
@@ -253,26 +278,6 @@ st.markdown("""
         transition: box-shadow 0.3s;
         position: relative;
         z-index: 1;
-    }
-    .avatar-snow {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 2;
-        border-radius: 18px;
-        overflow: hidden;
-    }
-    .avatar-snow span {
-        position: absolute;
-        top: -10%;
-        left: var(--x);
-        width: var(--s);
-        height: var(--s);
-        background: rgba(255, 255, 255, 0.88);
-        border-radius: 50%;
-        box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
-        animation: avatar-snow-fall var(--d) linear infinite;
-        animation-delay: var(--delay);
     }
     @keyframes avatar-snow-fall {
         0% {
@@ -423,6 +428,25 @@ def page_password():
 # ── Sidebar: ảnh + nhạc ────────────────────────────────────────────────────────
 def _render_sidebar():
     with st.sidebar:
+        st.markdown(
+            """
+            <div class="sidebar-snow" aria-hidden="true">
+                <span style="--x:6%;--s:4px;--d:8s;--delay:-1s"></span>
+                <span style="--x:14%;--s:3px;--d:9s;--delay:-5s"></span>
+                <span style="--x:22%;--s:5px;--d:10s;--delay:-2s"></span>
+                <span style="--x:31%;--s:3px;--d:8.5s;--delay:-6s"></span>
+                <span style="--x:40%;--s:4px;--d:9.2s;--delay:-3s"></span>
+                <span style="--x:50%;--s:3px;--d:11s;--delay:-7s"></span>
+                <span style="--x:60%;--s:5px;--d:9.5s;--delay:-4s"></span>
+                <span style="--x:69%;--s:3px;--d:8.8s;--delay:-8s"></span>
+                <span style="--x:78%;--s:4px;--d:10.5s;--delay:-2.5s"></span>
+                <span style="--x:87%;--s:3px;--d:9s;--delay:-6.5s"></span>
+                <span style="--x:94%;--s:4px;--d:8.4s;--delay:-3.5s"></span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
         # Ảnh avatar
         music_path = os.path.join(ASSETS_DIR, "music.mp3")
         avatar_extensions = ["jpg", "jpeg", "png", "webp"]
@@ -436,21 +460,6 @@ def _render_sidebar():
         if avatar_path:
             st.markdown('<div class="avatar-container">', unsafe_allow_html=True)
             st.image(avatar_path, use_container_width=True)
-            st.markdown(
-                """
-                <div class="avatar-snow" aria-hidden="true">
-                    <span style="--x:7%;--s:4px;--d:7s;--delay:-1s"></span>
-                    <span style="--x:16%;--s:3px;--d:8s;--delay:-4s"></span>
-                    <span style="--x:27%;--s:5px;--d:9s;--delay:-2s"></span>
-                    <span style="--x:39%;--s:3px;--d:8.5s;--delay:-5s"></span>
-                    <span style="--x:52%;--s:4px;--d:7.5s;--delay:-3s"></span>
-                    <span style="--x:63%;--s:3px;--d:9.5s;--delay:-6s"></span>
-                    <span style="--x:74%;--s:5px;--d:8.2s;--delay:-2.5s"></span>
-                    <span style="--x:86%;--s:4px;--d:7.8s;--delay:-4.5s"></span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
 
             if os.path.exists(music_path):
                 with open(music_path, "rb") as f:
