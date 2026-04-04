@@ -8,7 +8,6 @@ import random
 import time
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 from form_parser import parse_form, get_form_id
 from submitter import submit_form, precompute_answers, SUBMIT_URL_TEMPLATE
@@ -391,41 +390,24 @@ SUPPORTED_TYPES = ("multiple_choice", "dropdown", "checkbox", "linear_scale",
 
 
 def _get_device_id() -> str:
-    """Reads stable device ID from browser localStorage (via query param _did)."""
-    return st.query_params.get("_did", "")
+    """Fingerprint ổn định từ browser headers — không dùng IP."""
+    headers = {}
+    try:
+        headers = dict(st.context.headers)
+    except Exception:
+        headers = {}
 
+    user_agent  = headers.get("User-Agent", "")
+    accept_lang = headers.get("Accept-Language", "")
+    ch_platform = headers.get("Sec-CH-UA-Platform", "")
+    ch_ua       = headers.get("Sec-CH-UA", "")
 
-def _inject_device_id_js():
-    """Inject JS to create/read a permanent UUID in browser localStorage,
-    then sync it to the URL query param so Python can read it."""
-    components.html("""
-    <script>
-    (function() {
-        var KEY = 'tool_permanent_did';
-        var PARAM = '_did';
-        var did = localStorage.getItem(KEY);
-        if (!did) {
-            // Tạo UUID v4 dùng Web Crypto API
-            var a = new Uint8Array(16);
-            crypto.getRandomValues(a);
-            a[6] = (a[6] & 0x0f) | 0x40;
-            a[8] = (a[8] & 0x3f) | 0x80;
-            did = [...a].map(function(v, i) {
-                return ([4,6,8,10].includes(i) ? '-' : '') + v.toString(16).padStart(2,'0');
-            }).join('');
-            localStorage.setItem(KEY, did);
-        }
-        // Cập nhật URL của trang cha nếu cần
-        try {
-            var url = new URL(window.parent.location.href);
-            if (url.searchParams.get(PARAM) !== did) {
-                url.searchParams.set(PARAM, did);
-                window.parent.location.replace(url.toString());
-            }
-        } catch(e) {}
-    })();
-    </script>
-    """, height=0)
+    # Không dùng IP (X-Forwarded-For) vì IP thay đổi → ID thay đổi
+    fingerprint_raw = "|".join([user_agent, accept_lang, ch_platform, ch_ua])
+    if not fingerprint_raw.strip():
+        fingerprint_raw = "unknown-device"
+
+    return hashlib.sha256(fingerprint_raw.encode("utf-8")).hexdigest()[:20]
 
 
 def _load_device_registry() -> dict:
@@ -1109,13 +1091,6 @@ def page_run():
 
 
 # ── Router ────────────────────────────────────────────────────────────────────
-# Luôn inject JS để đảm bảo device ID ổn định qua localStorage
-_inject_device_id_js()
-
-# Nếu chưa có _did trong URL (lần đầu tiên, JS chưa kịp redirect) → chờ
-if not st.query_params.get("_did"):
-    st.stop()
-
 if not st.session_state.get("authenticated", False):
     page_password()
     st.stop()
