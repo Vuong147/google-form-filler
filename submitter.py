@@ -2,6 +2,7 @@ import random
 import json
 import requests
 import time
+from itertools import combinations
 
 SUBMIT_URL_TEMPLATE = "https://docs.google.com/forms/d/e/{form_id}/formResponse"
 
@@ -216,9 +217,20 @@ def _guess_page_count(questions: list) -> int:
 
 
 def _candidate_page_histories(page_count: int) -> list:
+    if page_count <= 1:
+        return ["0"]
+
     histories = ["0"]
-    for k in range(2, page_count + 3):
-        histories.append(",".join(str(i) for i in range(k)))
+    tail_pages = list(range(1, page_count))
+
+    # Cover non-consecutive paths too (e.g. 0,2,4) for branched multi-page forms.
+    # Keep a soft cap to avoid too many retries on very large forms.
+    max_candidates = 512
+    for r in range(1, len(tail_pages) + 1):
+        for combo in combinations(tail_pages, r):
+            histories.append(",".join(["0", *[str(i) for i in combo]]))
+            if len(histories) >= max_candidates:
+                return histories
     return histories
 
 
@@ -353,11 +365,15 @@ def _derive_branch_history(questions: list, picked_by_entry: dict, page_count: i
 
 
 def build_payload(questions: list, picked_by_entry: dict, fbzx: str = None,
-                  page_history: str = "0") -> tuple:
-    data = {"fvv": "1", "pageHistory": page_history}
+                  page_history: str = "0", include_page_history: bool = True,
+                  include_draft_response: bool = True) -> tuple:
+    data = {"fvv": "1"}
+    if include_page_history:
+        data["pageHistory"] = page_history
     if fbzx:
         data["fbzx"] = fbzx
-        data["draftResponse"] = json.dumps([None, None, fbzx], separators=(",", ":"))
+        if include_draft_response:
+            data["draftResponse"] = json.dumps([None, None, fbzx], separators=(",", ":"))
     else:
         data["fbzx"] = str(random.randint(-9_000_000_000_000_000_000, 9_000_000_000_000_000_000))
 
@@ -433,6 +449,24 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
 
             if not first_debug:
                 first_debug = f"pageHistory={page_history}\n" + resp.text[:600]
+
+        # Fallback: let Google infer page flow when strict pageHistory/draftResponse causes HTTP 400.
+        payload = build_payload(
+            questions,
+            picked_by_entry,
+            fbzx=fbzx,
+            include_page_history=False,
+            include_draft_response=False,
+        )
+        resp = requests.post(
+            url, data=payload, headers=HEADERS,
+            timeout=timeout, allow_redirects=True,
+            proxies=proxies
+        )
+        if resp.status_code == 200 and is_success(resp.text):
+            return True, chosen, ""
+        if not first_debug:
+            first_debug = f"HTTP {resp.status_code} (no_pageHistory)"
 
         return False, chosen, first_debug or "Submit failed for all pageHistory candidates"
 
