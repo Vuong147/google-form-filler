@@ -816,11 +816,30 @@ def page_configure():
                 cfg["ratios"] = probs
 
             elif q["type"] in ("short_text", "paragraph"):
-                answers = []
-                st.write(f"Nhập {st.session_state.n_submissions} câu trả lời (mỗi lần submit dùng 1 câu):")
-                for k in range(st.session_state.n_submissions):
-                    ans = st.text_input(f"Lần {k+1}", key=f"q{i}_s{k}")
-                    answers.append(ans)
+                n_subs = st.session_state.n_submissions
+                st.write(f"Nhập câu trả lời — **mỗi dòng = 1 lần submit** (để trống nếu không cần):")
+                prev_raw = st.session_state.get(f"q{i}_bulk_raw", "")
+                raw = st.text_area(
+                    f"Câu trả lời (mỗi dòng 1 submit)",
+                    value=prev_raw,
+                    height=max(120, min(n_subs * 32, 400)),
+                    placeholder="\n".join([f"Câu trả lời lần {k+1}" for k in range(min(n_subs, 3))] + (["..."] if n_subs > 3 else [])),
+                    key=f"q{i}_bulk",
+                    label_visibility="collapsed",
+                )
+                st.session_state[f"q{i}_bulk_raw"] = raw
+                filled = [ln for ln in raw.splitlines() if ln.strip()]
+
+                # Chỉ hiển thị gợi ý nhẹ, không bắt buộc
+                if len(filled) > n_subs:
+                    st.caption(f"🟠 {len(filled)} dòng — nhiều hơn số submit ({n_subs}), sẽ dùng {n_subs} dòng đầu")
+                elif 0 < len(filled) <= n_subs:
+                    st.caption(f"🟢 {len(filled)}/{n_subs} dòng")
+                else:
+                    st.caption(f"💡 Để trống → tất cả submit gửi câu trả lời rỗng")
+
+                # Lấy đúng n_subs dòng (padding rỗng nếu thiếu)
+                answers = (filled + [""] * n_subs)[:n_subs]
                 cfg["answers"] = answers
                 cfg["ratios"] = [1.0] * len(answers)
                 cfg["per_submission"] = True
