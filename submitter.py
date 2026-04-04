@@ -222,12 +222,23 @@ def _candidate_page_histories(page_count: int) -> list:
     return histories
 
 
-def _pick_answers_for_submission(questions: list, idx: int = 0) -> tuple:
+def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: list = None) -> tuple:
     picked_by_entry = {}
     chosen = {}
     page_count = _guess_page_count(questions)
     visited = [0]
     current_page = 0
+    forced_answers = {}
+
+    rules_by_source = {}
+    for r in (logic_rules or []):
+        try:
+            src = str(r.get("source_entry_id", "")).strip()
+            if not src:
+                continue
+            rules_by_source.setdefault(src, []).append(r)
+        except Exception:
+            continue
 
     for _ in range(max(1, page_count + 2)):
         page_questions = [
@@ -239,17 +250,34 @@ def _pick_answers_for_submission(questions: list, idx: int = 0) -> tuple:
         submit_now = False
 
         for q in page_questions:
-            answer = pick_answer(q, idx)
+            entry_id = str(q["entry_id"])
+
+            if entry_id in forced_answers:
+                if q.get("_precomputed") or q.get("per_submission"):
+                    _ = pick_answer(q, idx)
+                answer = forced_answers[entry_id]
+            else:
+                answer = pick_answer(q, idx)
+
             if answer is None:
                 continue
 
-            entry_id = str(q["entry_id"])
             picked_by_entry[entry_id] = answer
 
             if isinstance(answer, list):
                 chosen[q["text"]] = answer if answer else ["(không chọn)"]
             else:
                 chosen[q["text"]] = answer
+
+            src_rules = rules_by_source.get(entry_id, [])
+            if src_rules and not isinstance(answer, list):
+                for rule in src_rules:
+                    if answer != rule.get("source_answer"):
+                        continue
+                    target_id = str(rule.get("target_entry_id", "")).strip()
+                    target_answer = rule.get("target_answer")
+                    if target_id and target_answer is not None and target_id not in picked_by_entry:
+                        forced_answers[target_id] = target_answer
 
             routes = q.get("option_routes") or {}
             overrides = q.get("option_routes_override") or {}
@@ -354,10 +382,14 @@ def build_payload(questions: list, picked_by_entry: dict, fbzx: str = None,
 
 def submit_form(form_id: str, questions: list, timeout: int = 15,
                 submission_index: int = 0, proxy: str = None,
-                fbzx: str = None) -> tuple:
+                fbzx: str = None, logic_rules: list = None) -> tuple:
     url = SUBMIT_URL_TEMPLATE.format(form_id=form_id)
     page_count = _guess_page_count(questions)
-    picked_by_entry, chosen, picked_history = _pick_answers_for_submission(questions, submission_index)
+    picked_by_entry, chosen, picked_history = _pick_answers_for_submission(
+        questions,
+        submission_index,
+        logic_rules=logic_rules,
+    )
 
     histories = []
     if picked_history:

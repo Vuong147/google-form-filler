@@ -484,6 +484,7 @@ def _init():
         "win_start": "08:00", "win_end": "22:00",
         "proxies": [], "use_proxy": False,
         "results": [], "log": [],
+        "logic_rules": [], "logic_rule_count": 0,
         "authenticated": False,
     }
     for k, v in defaults.items():
@@ -920,6 +921,80 @@ def page_configure():
 
         configured.append(cfg)
 
+    logic_candidates = [
+        q for q in configured
+        if q.get("type") in ("multiple_choice", "dropdown", "linear_scale") and q.get("options")
+    ]
+    logic_rules = []
+
+    st.divider()
+    with st.expander("🧠 Ràng buộc logic giữa các câu (tuỳ chọn)", expanded=False):
+        if len(logic_candidates) < 2:
+            st.caption("Cần ít nhất 2 câu dạng chọn 1 đáp án để tạo rule logic.")
+        else:
+            labels = [f"Câu {idx+1}: {qq['text']}" for idx, qq in enumerate(logic_candidates)]
+            default_count = int(st.session_state.get("logic_rule_count", 0))
+            rule_count = st.number_input(
+                "Số rule",
+                min_value=0,
+                max_value=20,
+                value=min(default_count, 20),
+                step=1,
+                key="logic_rule_count_input",
+            )
+            st.session_state.logic_rule_count = int(rule_count)
+
+            for ridx in range(int(rule_count)):
+                st.markdown(f"**Rule {ridx + 1}**")
+                c1, c2 = st.columns(2)
+
+                with c1:
+                    src_idx = st.selectbox(
+                        "Nếu câu",
+                        options=list(range(len(logic_candidates))),
+                        format_func=lambda x: labels[x],
+                        key=f"logic_src_q_{ridx}",
+                    )
+                src_q = logic_candidates[src_idx]
+                with c2:
+                    src_answer = st.selectbox(
+                        "Chọn đáp án",
+                        options=src_q.get("options", []),
+                        key=f"logic_src_opt_{ridx}",
+                    )
+
+                d1, d2 = st.columns(2)
+                target_indices = [i for i in range(len(logic_candidates)) if i != src_idx]
+                if not target_indices:
+                    target_indices = [src_idx]
+
+                with d1:
+                    tgt_idx = st.selectbox(
+                        "Thì câu",
+                        options=target_indices,
+                        format_func=lambda x: labels[x],
+                        key=f"logic_tgt_q_{ridx}",
+                    )
+                tgt_q = logic_candidates[tgt_idx]
+                with d2:
+                    tgt_answer = st.selectbox(
+                        "Sẽ chọn đáp án",
+                        options=tgt_q.get("options", []),
+                        key=f"logic_tgt_opt_{ridx}",
+                    )
+
+                logic_rules.append({
+                    "source_entry_id": str(src_q["entry_id"]),
+                    "source_answer": src_answer,
+                    "target_entry_id": str(tgt_q["entry_id"]),
+                    "target_answer": tgt_answer,
+                })
+
+            if logic_rules:
+                st.caption(f"Đã tạo {len(logic_rules)} rule logic.")
+            else:
+                st.caption("Chưa có rule nào. Tool sẽ chạy theo tỉ lệ bình thường.")
+
     # Tính LCM từ tỉ lệ THỰC TẾ đã nhập
     global_lcm = 1
     for cfg_q in configured:
@@ -950,6 +1025,7 @@ def page_configure():
     with col2:
         if st.button("Tiếp tục →", type="primary", disabled=not valid):
             st.session_state.configured = configured
+            st.session_state.logic_rules = logic_rules
             st.session_state.step = 2
             st.rerun()
 
@@ -1015,6 +1091,7 @@ def page_run():
 
     n = st.session_state.n_submissions
     configured = st.session_state.configured
+    logic_rules = st.session_state.get("logic_rules", [])
     form_id = st.session_state.form_id
     proxies = st.session_state.proxies
     fbzx = st.session_state.get("fbzx")
@@ -1042,7 +1119,14 @@ def page_run():
                 time.sleep(wait)
 
         proxy = proxies[(i - 1) % len(proxies)] if proxies else None
-        success, answers, debug_info = submit_form(form_id, configured, submission_index=i - 1, proxy=proxy, fbzx=fbzx)
+        success, answers, debug_info = submit_form(
+            form_id,
+            configured,
+            submission_index=i - 1,
+            proxy=proxy,
+            fbzx=fbzx,
+            logic_rules=logic_rules,
+        )
         if not success and debug_info and "first_debug" not in st.session_state:
             st.session_state["first_debug"] = debug_info
         results.append({"success": success, "answers": answers})
