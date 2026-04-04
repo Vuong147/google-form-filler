@@ -1119,14 +1119,25 @@ def page_run():
                 time.sleep(wait)
 
         proxy = proxies[(i - 1) % len(proxies)] if proxies else None
-        success, answers, debug_info = submit_form(
-            form_id,
-            configured,
-            submission_index=i - 1,
-            proxy=proxy,
-            fbzx=fbzx,
-            logic_rules=logic_rules,
-        )
+        try:
+            success, answers, debug_info = submit_form(
+                form_id,
+                configured,
+                submission_index=i - 1,
+                proxy=proxy,
+                fbzx=fbzx,
+                logic_rules=logic_rules,
+            )
+        except TypeError as e:
+            if "logic_rules" not in str(e):
+                raise
+            success, answers, debug_info = submit_form(
+                form_id,
+                configured,
+                submission_index=i - 1,
+                proxy=proxy,
+                fbzx=fbzx,
+            )
         if not success and debug_info and "first_debug" not in st.session_state:
             st.session_state["first_debug"] = debug_info
         results.append({"success": success, "answers": answers})
