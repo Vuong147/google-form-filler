@@ -1097,6 +1097,7 @@ def page_run():
     fbzx = st.session_state.get("fbzx")
 
     precompute_answers(configured, n)
+    st.session_state.pop("first_debug", None)
 
     schedule = None
     if st.session_state.timing_mode == "window":
@@ -1138,7 +1139,7 @@ def page_run():
                 proxy=proxy,
                 fbzx=fbzx,
             )
-        if not success and debug_info and "first_debug" not in st.session_state:
+        if not success and debug_info:
             st.session_state["first_debug"] = debug_info
         results.append({"success": success, "answers": answers})
 

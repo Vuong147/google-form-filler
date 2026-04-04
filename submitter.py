@@ -2,9 +2,11 @@ import random
 import json
 import requests
 import time
+import re
 from itertools import combinations
 
 SUBMIT_URL_TEMPLATE = "https://docs.google.com/forms/d/e/{form_id}/formResponse"
+VIEW_URL_TEMPLATE = "https://docs.google.com/forms/d/e/{form_id}/viewform"
 
 HEADERS = {
     "Content-Type": "application/x-www-form-urlencoded",
@@ -400,6 +402,7 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
                 submission_index: int = 0, proxy: str = None,
                 fbzx: str = None, logic_rules: list = None) -> tuple:
     url = SUBMIT_URL_TEMPLATE.format(form_id=form_id)
+    view_url = VIEW_URL_TEMPLATE.format(form_id=form_id)
     page_count = _guess_page_count(questions)
     picked_by_entry, chosen, picked_history = _pick_answers_for_submission(
         questions,
@@ -426,6 +429,29 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
     try:
         first_debug = ""
         tried_debugs = []
+        session = requests.Session()
+        session.headers.update(dict(HEADERS))
+        session.headers["Origin"] = "https://docs.google.com"
+        session.headers["Referer"] = view_url
+
+        fresh_fbzx = None
+        try:
+            vr = session.get(view_url, timeout=timeout, allow_redirects=True, proxies=proxies)
+            if vr.status_code == 200 and vr.text:
+                m = re.search(r'name="fbzx"\s+value="([^"]+)"', vr.text)
+                if not m:
+                    m = re.search(r'"fbzx"\s*,\s*"([^"]+)"', vr.text)
+                if m:
+                    fresh_fbzx = m.group(1)
+        except Exception:
+            pass
+
+        token_candidates = []
+        if fresh_fbzx:
+            token_candidates.append((fresh_fbzx, "fresh_fbzx"))
+        if fbzx and fbzx != fresh_fbzx:
+            token_candidates.append((fbzx, "parsed_fbzx"))
+        token_candidates.append((None, "no_fbzx"))
 
         def _try_payload(token, page_history="0", include_page_history=True, include_draft_response=True, tag=""):
             payload = build_payload(
@@ -436,8 +462,8 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
                 include_page_history=include_page_history,
                 include_draft_response=include_draft_response,
             )
-            resp = requests.post(
-                url, data=payload, headers=HEADERS,
+            resp = session.post(
+                url, data=payload,
                 timeout=timeout, allow_redirects=True,
                 proxies=proxies
             )
@@ -447,40 +473,13 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
                 return False, f"HTTP {resp.status_code} ({tag})"
             return False, f"{tag}\n" + resp.text[:600]
 
-        # Mode 1: safest payload (no pageHistory, no draftResponse, random token)
-        ok, dbg = _try_payload(
-            None,
-            include_page_history=False,
-            include_draft_response=False,
-            tag="no_pageHistory,no_draft,no_fbzx",
-        )
-        if ok:
-            return True, chosen, ""
-        tried_debugs.append(dbg)
-        if not first_debug:
-            first_debug = dbg
-
-        # Mode 2: no pageHistory + parsed fbzx, no draftResponse
-        ok, dbg = _try_payload(
-            fbzx,
-            include_page_history=False,
-            include_draft_response=False,
-            tag="no_pageHistory,no_draft",
-        )
-        if ok:
-            return True, chosen, ""
-        tried_debugs.append(dbg)
-        if not first_debug:
-            first_debug = dbg
-
-        # Mode 3: pageHistory without draftResponse
-        for page_history in dedup_histories:
+        for token, token_tag in token_candidates:
+            # Mode 1: safest payload (no pageHistory, no draftResponse)
             ok, dbg = _try_payload(
-                fbzx,
-                page_history=page_history,
-                include_page_history=True,
+                token,
+                include_page_history=False,
                 include_draft_response=False,
-                tag=f"pageHistory={page_history},no_draft",
+                tag=f"{token_tag},no_pageHistory,no_draft",
             )
             if ok:
                 return True, chosen, ""
@@ -488,22 +487,39 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
             if not first_debug:
                 first_debug = dbg
 
-        # Mode 4: strict mode with draftResponse
-        for page_history in dedup_histories:
-            ok, dbg = _try_payload(
-                fbzx,
-                page_history=page_history,
-                include_page_history=True,
-                include_draft_response=True,
-                tag=f"pageHistory={page_history}",
-            )
-            if ok:
-                return True, chosen, ""
-            tried_debugs.append(dbg)
-            if not first_debug:
-                first_debug = dbg
+            # Mode 2: pageHistory without draftResponse
+            for page_history in dedup_histories:
+                ok, dbg = _try_payload(
+                    token,
+                    page_history=page_history,
+                    include_page_history=True,
+                    include_draft_response=False,
+                    tag=f"{token_tag},pageHistory={page_history},no_draft",
+                )
+                if ok:
+                    return True, chosen, ""
+                tried_debugs.append(dbg)
+                if not first_debug:
+                    first_debug = dbg
 
-        debug_summary = "\n---\n".join(tried_debugs[:8])
+            # Mode 3: strict mode with draftResponse
+            for page_history in dedup_histories:
+                ok, dbg = _try_payload(
+                    token,
+                    page_history=page_history,
+                    include_page_history=True,
+                    include_draft_response=True,
+                    tag=f"{token_tag},pageHistory={page_history}",
+                )
+                if ok:
+                    return True, chosen, ""
+                tried_debugs.append(dbg)
+                if not first_debug:
+                    first_debug = dbg
+
+        debug_summary = "\n---\n".join(tried_debugs[:12])
+        if first_debug and debug_summary:
+            return False, chosen, first_debug + "\n\n[All tried modes]\n" + debug_summary
         return False, chosen, first_debug or debug_summary or "Submit failed for all retry strategies"
 
     except requests.exceptions.Timeout:
