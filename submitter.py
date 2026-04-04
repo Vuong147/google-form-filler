@@ -425,50 +425,80 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
 
     try:
         first_debug = ""
-        for page_history in dedup_histories:
+
+        def _try_payload(token, page_history="0", include_page_history=True, include_draft_response=True, tag=""):
             payload = build_payload(
                 questions,
                 picked_by_entry,
-                fbzx=fbzx,
+                fbzx=token,
                 page_history=page_history,
+                include_page_history=include_page_history,
+                include_draft_response=include_draft_response,
             )
             resp = requests.post(
                 url, data=payload, headers=HEADERS,
                 timeout=timeout, allow_redirects=True,
                 proxies=proxies
             )
-
+            if resp.status_code == 200 and is_success(resp.text):
+                return True, ""
             if resp.status_code != 200:
-                if not first_debug:
-                    first_debug = f"HTTP {resp.status_code} (pageHistory={page_history})"
-                continue
+                return False, f"HTTP {resp.status_code} ({tag})"
+            return False, f"{tag}\n" + resp.text[:600]
 
-            success = is_success(resp.text)
-            if success:
+        # Mode 1: keep original behavior (fbzx + draftResponse + pageHistory candidates)
+        for page_history in dedup_histories:
+            ok, dbg = _try_payload(
+                fbzx,
+                page_history=page_history,
+                include_page_history=True,
+                include_draft_response=True,
+                tag=f"pageHistory={page_history}",
+            )
+            if ok:
                 return True, chosen, ""
-
             if not first_debug:
-                first_debug = f"pageHistory={page_history}\n" + resp.text[:600]
+                first_debug = dbg
 
-        # Fallback: let Google infer page flow when strict pageHistory/draftResponse causes HTTP 400.
-        payload = build_payload(
-            questions,
-            picked_by_entry,
-            fbzx=fbzx,
+        # Mode 2: some forms reject draftResponse although pageHistory is valid
+        for page_history in dedup_histories:
+            ok, dbg = _try_payload(
+                fbzx,
+                page_history=page_history,
+                include_page_history=True,
+                include_draft_response=False,
+                tag=f"pageHistory={page_history},no_draft",
+            )
+            if ok:
+                return True, chosen, ""
+            if not first_debug:
+                first_debug = dbg
+
+        # Mode 3: let Google infer page flow
+        ok, dbg = _try_payload(
+            fbzx,
             include_page_history=False,
             include_draft_response=False,
+            tag="no_pageHistory",
         )
-        resp = requests.post(
-            url, data=payload, headers=HEADERS,
-            timeout=timeout, allow_redirects=True,
-            proxies=proxies
-        )
-        if resp.status_code == 200 and is_success(resp.text):
+        if ok:
             return True, chosen, ""
         if not first_debug:
-            first_debug = f"HTTP {resp.status_code} (no_pageHistory)"
+            first_debug = dbg
 
-        return False, chosen, first_debug or "Submit failed for all pageHistory candidates"
+        # Mode 4: fallback without parsed fbzx (random token)
+        ok, dbg = _try_payload(
+            None,
+            include_page_history=False,
+            include_draft_response=False,
+            tag="no_pageHistory,no_fbzx",
+        )
+        if ok:
+            return True, chosen, ""
+        if not first_debug:
+            first_debug = dbg
+
+        return False, chosen, first_debug or "Submit failed for all retry strategies"
 
     except requests.exceptions.Timeout:
         return False, chosen, "Timeout"
