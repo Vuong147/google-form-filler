@@ -425,6 +425,7 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
 
     try:
         first_debug = ""
+        tried_debugs = []
 
         def _try_payload(token, page_history="0", include_page_history=True, include_draft_response=True, tag=""):
             payload = build_payload(
@@ -446,21 +447,33 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
                 return False, f"HTTP {resp.status_code} ({tag})"
             return False, f"{tag}\n" + resp.text[:600]
 
-        # Mode 1: keep original behavior (fbzx + draftResponse + pageHistory candidates)
-        for page_history in dedup_histories:
-            ok, dbg = _try_payload(
-                fbzx,
-                page_history=page_history,
-                include_page_history=True,
-                include_draft_response=True,
-                tag=f"pageHistory={page_history}",
-            )
-            if ok:
-                return True, chosen, ""
-            if not first_debug:
-                first_debug = dbg
+        # Mode 1: safest payload (no pageHistory, no draftResponse, random token)
+        ok, dbg = _try_payload(
+            None,
+            include_page_history=False,
+            include_draft_response=False,
+            tag="no_pageHistory,no_draft,no_fbzx",
+        )
+        if ok:
+            return True, chosen, ""
+        tried_debugs.append(dbg)
+        if not first_debug:
+            first_debug = dbg
 
-        # Mode 2: some forms reject draftResponse although pageHistory is valid
+        # Mode 2: no pageHistory + parsed fbzx, no draftResponse
+        ok, dbg = _try_payload(
+            fbzx,
+            include_page_history=False,
+            include_draft_response=False,
+            tag="no_pageHistory,no_draft",
+        )
+        if ok:
+            return True, chosen, ""
+        tried_debugs.append(dbg)
+        if not first_debug:
+            first_debug = dbg
+
+        # Mode 3: pageHistory without draftResponse
         for page_history in dedup_histories:
             ok, dbg = _try_payload(
                 fbzx,
@@ -471,34 +484,27 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
             )
             if ok:
                 return True, chosen, ""
+            tried_debugs.append(dbg)
             if not first_debug:
                 first_debug = dbg
 
-        # Mode 3: let Google infer page flow
-        ok, dbg = _try_payload(
-            fbzx,
-            include_page_history=False,
-            include_draft_response=False,
-            tag="no_pageHistory",
-        )
-        if ok:
-            return True, chosen, ""
-        if not first_debug:
-            first_debug = dbg
+        # Mode 4: strict mode with draftResponse
+        for page_history in dedup_histories:
+            ok, dbg = _try_payload(
+                fbzx,
+                page_history=page_history,
+                include_page_history=True,
+                include_draft_response=True,
+                tag=f"pageHistory={page_history}",
+            )
+            if ok:
+                return True, chosen, ""
+            tried_debugs.append(dbg)
+            if not first_debug:
+                first_debug = dbg
 
-        # Mode 4: fallback without parsed fbzx (random token)
-        ok, dbg = _try_payload(
-            None,
-            include_page_history=False,
-            include_draft_response=False,
-            tag="no_pageHistory,no_fbzx",
-        )
-        if ok:
-            return True, chosen, ""
-        if not first_debug:
-            first_debug = dbg
-
-        return False, chosen, first_debug or "Submit failed for all retry strategies"
+        debug_summary = "\n---\n".join(tried_debugs[:8])
+        return False, chosen, first_debug or debug_summary or "Submit failed for all retry strategies"
 
     except requests.exceptions.Timeout:
         return False, chosen, "Timeout"
