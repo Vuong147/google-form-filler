@@ -410,7 +410,7 @@ def _get_device_id() -> str:
 
 
 def _load_device_registry() -> dict:
-    default_data = {"allowed_devices": [], "blocked_devices": []}
+    default_data = {"allowed_devices": [], "blocked_devices": [], "device_meta": {}}
     if not os.path.exists(DEVICE_REGISTRY_PATH):
         return default_data
     try:
@@ -418,8 +418,10 @@ def _load_device_registry() -> dict:
             data = json.load(f)
         if not isinstance(data, dict):
             return default_data
+        # Backward-compat
         data.setdefault("allowed_devices", [])
         data.setdefault("blocked_devices", [])
+        data.setdefault("device_meta", {})
         return data
     except Exception:
         return default_data
@@ -433,21 +435,41 @@ def _save_device_registry(data: dict) -> None:
         pass
 
 
+def _now_str() -> str:
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
 def _authorize_device() -> tuple:
     device_id = _get_device_id()
     registry = _load_device_registry()
 
     allowed = set(registry.get("allowed_devices", []))
     blocked = set(registry.get("blocked_devices", []))
+    meta: dict = registry.get("device_meta", {})
 
     if device_id in blocked:
+        # Cập nhật last_seen dù bị block
+        if device_id not in meta:
+            meta[device_id] = {"first_seen": _now_str(), "last_seen": _now_str(), "label": ""}
+        else:
+            meta[device_id]["last_seen"] = _now_str()
+        registry["device_meta"] = meta
+        _save_device_registry(registry)
         return False, device_id, "Thiết bị này đã bị chặn."
+
+    now = _now_str()
+    if device_id not in meta:
+        meta[device_id] = {"first_seen": now, "last_seen": now, "label": ""}
+    else:
+        meta[device_id]["last_seen"] = now
 
     if device_id not in allowed:
         allowed.add(device_id)
-        registry["allowed_devices"] = list(allowed)
-        registry["blocked_devices"] = list(blocked)
-        _save_device_registry(registry)
+
+    registry["allowed_devices"] = list(allowed)
+    registry["blocked_devices"] = list(blocked)
+    registry["device_meta"] = meta
+    _save_device_registry(registry)
 
     return True, device_id, ""
 
@@ -576,50 +598,89 @@ def _render_sidebar():
             admin_pwd = st.text_input("Admin password", type="password", key="admin_panel_password")
             if admin_pwd == APP_PASSWORD:
                 registry = _load_device_registry()
-                allowed = list(dict.fromkeys(registry.get("allowed_devices", [])))
-                blocked = list(dict.fromkeys(registry.get("blocked_devices", [])))
+                allowed_set = set(registry.get("allowed_devices", []))
+                blocked_set = set(registry.get("blocked_devices", []))
+                meta: dict = registry.get("device_meta", {})
 
                 current_device = st.session_state.get("device_id", _get_device_id())
-                st.caption(f"Thiết bị hiện tại: `{current_device}`")
+                all_known = list(dict.fromkeys(
+                    list(allowed_set) + list(blocked_set) + list(meta.keys())
+                ))
 
-                target_id = st.text_input(
-                    "Device ID cần thao tác",
-                    value=current_device,
-                    key="admin_target_device_id",
-                ).strip()
+                st.caption(f"🖥️ Thiết bị hiện tại: `{current_device}`")
+                st.caption(f"Tổng: **{len(all_known)}** thiết bị đã biết")
+                st.divider()
 
-                c1, c2, c3 = st.columns(3)
-                if c1.button("✅ Allow", use_container_width=True):
-                    if target_id:
-                        if target_id in blocked:
-                            blocked.remove(target_id)
-                        if target_id not in allowed:
-                            allowed.append(target_id)
-                        _save_device_registry({"allowed_devices": allowed, "blocked_devices": blocked})
-                        st.success("Đã cấp quyền thiết bị")
+                def _save_action(a_set, b_set, m):
+                    _save_device_registry({
+                        "allowed_devices": list(a_set),
+                        "blocked_devices": list(b_set),
+                        "device_meta": m,
+                    })
 
-                if c2.button("⛔ Block", use_container_width=True):
-                    if target_id:
-                        if target_id in allowed:
-                            allowed.remove(target_id)
-                        if target_id not in blocked:
-                            blocked.append(target_id)
-                        _save_device_registry({"allowed_devices": allowed, "blocked_devices": blocked})
-                        st.warning("Đã chặn thiết bị")
+                # ── Danh sách thiết bị ──────────────────────────────
+                for dev_id in all_known:
+                    is_blocked = dev_id in blocked_set
+                    is_current = dev_id == current_device
+                    dev_meta = meta.get(dev_id, {})
+                    label = dev_meta.get("label", "") or ""
+                    first_seen = dev_meta.get("first_seen", "—")
+                    last_seen = dev_meta.get("last_seen", "—")
 
-                if c3.button("🗑️ Remove", use_container_width=True):
-                    if target_id:
-                        if target_id in allowed:
-                            allowed.remove(target_id)
-                        if target_id in blocked:
-                            blocked.remove(target_id)
-                        _save_device_registry({"allowed_devices": allowed, "blocked_devices": blocked})
-                        st.info("Đã gỡ thiết bị khỏi danh sách")
+                    status_icon = "⛔" if is_blocked else "✅"
+                    you_tag = " 👤 **(bạn)**" if is_current else ""
+                    display_name = f"{label}" if label else f"`{dev_id[:12]}...`"
 
-                st.markdown("**Allowed devices**")
-                st.code("\n".join(allowed) if allowed else "(trống)")
-                st.markdown("**Blocked devices**")
-                st.code("\n".join(blocked) if blocked else "(trống)")
+                    st.markdown(
+                        f"{status_icon} **{display_name}**{you_tag}  \n"
+                        f"<span style='font-size:0.75rem;color:#94a3b8;'>"
+                        f"ID: `{dev_id}` · Lần đầu: {first_seen} · Lần cuối: {last_seen}"
+                        f"</span>",
+                        unsafe_allow_html=True,
+                    )
+
+                    col_label, col_block, col_del = st.columns([2, 1, 1])
+
+                    with col_label:
+                        new_label = st.text_input(
+                            "Tên", value=label,
+                            placeholder="Đặt tên thiết bị...",
+                            key=f"label_{dev_id}",
+                            label_visibility="collapsed",
+                        )
+                        if new_label != label:
+                            if dev_id not in meta:
+                                meta[dev_id] = {"first_seen": _now_str(), "last_seen": _now_str(), "label": ""}
+                            meta[dev_id]["label"] = new_label
+                            _save_action(allowed_set, blocked_set, meta)
+                            st.rerun()
+
+                    with col_block:
+                        if is_blocked:
+                            if st.button("✅ Mở", key=f"unblock_{dev_id}", use_container_width=True):
+                                blocked_set.discard(dev_id)
+                                allowed_set.add(dev_id)
+                                _save_action(allowed_set, blocked_set, meta)
+                                st.rerun()
+                        else:
+                            if st.button("⛔ Block", key=f"block_{dev_id}", use_container_width=True):
+                                allowed_set.discard(dev_id)
+                                blocked_set.add(dev_id)
+                                _save_action(allowed_set, blocked_set, meta)
+                                st.rerun()
+
+                    with col_del:
+                        if st.button("🗑️", key=f"del_{dev_id}", use_container_width=True):
+                            allowed_set.discard(dev_id)
+                            blocked_set.discard(dev_id)
+                            meta.pop(dev_id, None)
+                            _save_action(allowed_set, blocked_set, meta)
+                            st.rerun()
+
+                    st.markdown("<hr style='margin:6px 0;border-color:rgba(100,116,139,0.2)'>" , unsafe_allow_html=True)
+
+                if not all_known:
+                    st.info("Chưa có thiết bị nào đăng nhập")
             elif admin_pwd:
                 st.error("Sai admin password")
 
