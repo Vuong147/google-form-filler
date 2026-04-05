@@ -1310,20 +1310,27 @@ def page_settings():
 
     st.divider()
     st.subheader("🧪 Preview mô phỏng (không submit)")
-    if st.button("Chạy preview 300 lượt"):
-        preview_n = 300
+    preview_n = st.number_input(
+        "Số lượt preview",
+        min_value=50,
+        max_value=5000,
+        value=300,
+        step=50,
+        key="preview_sample_size",
+    )
+    if st.button("Chạy preview"):
         with st.spinner("Đang mô phỏng..."):
             rows, max_delta = _estimate_logic_distribution(
                 st.session_state.configured,
                 st.session_state.get("logic_rules", []),
-                sample_size=preview_n,
+                sample_size=int(preview_n),
             )
             errors, warnings = _validate_before_run(
                 st.session_state.configured,
                 st.session_state.get("logic_rules", []),
                 st.session_state.get("accuracy_mode", "balanced"),
             )
-        st.caption(f"Đã mô phỏng {preview_n} lượt, không gửi lên Google Form.")
+        st.caption(f"Đã mô phỏng {int(preview_n)} lượt, không gửi lên Google Form.")
         st.write(f"Độ lệch tối đa so với % đã đặt: **{max_delta:.1f}%**")
         if rows:
             top_rows = sorted(rows, key=lambda r: abs(float(r["Lệch"].replace("%", ""))), reverse=True)[:5]
