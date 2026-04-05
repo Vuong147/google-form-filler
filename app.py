@@ -1187,10 +1187,6 @@ def page_run():
 
 
 # ── Router ────────────────────────────────────────────────────────────────────
-if not st.session_state.get("authenticated", False):
-    page_password()
-    st.stop()
-
 _render_sidebar()
 pages = {0: page_url, 1: page_configure, 2: page_settings, 3: page_run}
 pages[st.session_state.step]()
