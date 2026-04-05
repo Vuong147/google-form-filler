@@ -1133,10 +1133,8 @@ def page_configure():
                 )
                 if rows:
                     st.caption(
-                        f"📊 Ước tính nhanh tỉ lệ thực tế sau khi áp rule "
-                        f"(mô phỏng {sample_size:,} lượt)."
+                        f"📊 Đã mô phỏng nhanh {sample_size:,} lượt để ước tính độ lệch tỉ lệ sau khi áp rule."
                     )
-                    st.dataframe(rows, use_container_width=True)
                 if max_delta >= 10:
                     st.warning(
                         f"⚠️ Rule đang làm lệch tối đa khoảng {max_delta:.1f}% so với % đã đặt. "
