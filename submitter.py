@@ -322,6 +322,42 @@ def _candidate_page_histories(page_count: int) -> list:
     return histories
 
 
+def _is_single_choice_question(q: dict) -> bool:
+    return q.get("type") in ("multiple_choice", "dropdown", "linear_scale")
+
+
+def _compute_forbidden_map(picked_by_entry: dict, rules_by_source: dict) -> dict:
+    forbidden_by_target = {}
+    for source_id, rules in rules_by_source.items():
+        source_answer = picked_by_entry.get(source_id)
+        if source_answer is None or isinstance(source_answer, list):
+            continue
+        for rule in rules:
+            if source_answer != rule.get("source_answer"):
+                continue
+            target_id = str(rule.get("target_entry_id", "")).strip()
+            forbidden_answer = rule.get("forbidden_answer")
+            if target_id and forbidden_answer is not None:
+                forbidden_by_target.setdefault(target_id, set()).add(str(forbidden_answer))
+    return forbidden_by_target
+
+
+def _find_forbidden_conflict(page_questions: list, forbidden_by_target: dict) -> str:
+    for q in page_questions:
+        if not _is_single_choice_question(q):
+            continue
+        options = q.get("options", [])
+        if not options:
+            continue
+        entry_id = str(q.get("entry_id", ""))
+        forbidden = {str(x) for x in forbidden_by_target.get(entry_id, set())}
+        allowed = [opt for opt in options if str(opt) not in forbidden]
+        if not allowed:
+            text = str(q.get("text", "")).strip() or f"entry.{entry_id}"
+            return f"Rule conflict: câu '{text}' không còn đáp án hợp lệ (đang bị cấm toàn bộ)."
+    return ""
+
+
 def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: list = None) -> tuple:
     picked_by_entry = {}
     chosen = {}
@@ -329,7 +365,6 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
     visited = [0]
     current_page = 0
     forced_answers = {}
-    forbidden_by_target = {}
 
     rules_by_source = {}
     for r in (logic_rules or []):
@@ -352,6 +387,7 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
 
         for q in page_questions:
             entry_id = str(q["entry_id"])
+            current_forbidden = _compute_forbidden_map(picked_by_entry, rules_by_source)
 
             if entry_id in forced_answers:
                 if q.get("_precomputed") or q.get("per_submission"):
@@ -361,7 +397,7 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
                 answer = _pick_answer_with_forbidden(
                     q,
                     idx,
-                    forbidden_options=forbidden_by_target.get(entry_id, set()),
+                    forbidden_options=current_forbidden.get(entry_id, set()),
                 )
 
             if answer is None:
@@ -380,18 +416,61 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
                     if answer != rule.get("source_answer"):
                         continue
                     target_id = str(rule.get("target_entry_id", "")).strip()
-                    forbidden_answer = rule.get("forbidden_answer")
-                    if target_id and forbidden_answer is not None:
-                        forbidden_by_target.setdefault(target_id, set()).add(forbidden_answer)
                     target_answer = rule.get("target_answer")
                     if target_id and target_answer is not None and target_id not in picked_by_entry:
                         forced_answers[target_id] = target_answer
 
+        conflict = _find_forbidden_conflict(page_questions, _compute_forbidden_map(picked_by_entry, rules_by_source))
+        if conflict:
+            return {}, {}, "", conflict
+
+        for _ in range(max(1, len(page_questions) + 1)):
+            forbidden_by_target = _compute_forbidden_map(picked_by_entry, rules_by_source)
+            changed = False
+
+            for q in page_questions:
+                if not _is_single_choice_question(q):
+                    continue
+
+                entry_id = str(q["entry_id"])
+                old_answer = picked_by_entry.get(entry_id)
+                if old_answer is None:
+                    continue
+
+                forbidden = {str(x) for x in forbidden_by_target.get(entry_id, set())}
+                if not forbidden or str(old_answer) not in forbidden:
+                    continue
+
+                if entry_id in forced_answers:
+                    text = str(q.get("text", "")).strip() or f"entry.{entry_id}"
+                    return {}, {}, "", f"Rule conflict: câu '{text}' bị force vào đáp án đang bị cấm."
+
+                new_answer = _pick_answer_with_forbidden(q, idx, forbidden_options=forbidden)
+                if new_answer is None or str(new_answer) in forbidden:
+                    text = str(q.get("text", "")).strip() or f"entry.{entry_id}"
+                    return {}, {}, "", f"Rule conflict: câu '{text}' không còn đáp án hợp lệ sau khi áp rule."
+
+                if new_answer != old_answer:
+                    picked_by_entry[entry_id] = new_answer
+                    chosen[q["text"]] = new_answer
+                    changed = True
+
+            conflict = _find_forbidden_conflict(page_questions, forbidden_by_target)
+            if conflict:
+                return {}, {}, "", conflict
+            if not changed:
+                break
+
+        for q in page_questions:
             routes = q.get("option_routes") or {}
             overrides = q.get("option_routes_override") or {}
             active_routes = dict(routes)
             active_routes.update(overrides)
-            if not active_routes or isinstance(answer, list):
+            if not active_routes:
+                continue
+
+            answer = picked_by_entry.get(str(q["entry_id"]))
+            if answer is None or isinstance(answer, list):
                 continue
 
             route = active_routes.get(answer)
@@ -413,7 +492,7 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
         visited.append(next_page)
         current_page = next_page
 
-    return picked_by_entry, chosen, ",".join(str(i) for i in visited)
+    return picked_by_entry, chosen, ",".join(str(i) for i in visited), ""
 
 
 def _derive_branch_history(questions: list, picked_by_entry: dict, page_count: int) -> str:
@@ -498,11 +577,13 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
     url = SUBMIT_URL_TEMPLATE.format(form_id=form_id)
     view_url = VIEW_URL_TEMPLATE.format(form_id=form_id)
     page_count = _guess_page_count(questions)
-    picked_by_entry, chosen, picked_history = _pick_answers_for_submission(
+    picked_by_entry, chosen, picked_history, rule_error = _pick_answers_for_submission(
         questions,
         submission_index,
         logic_rules=logic_rules,
     )
+    if rule_error:
+        return False, chosen, rule_error
 
     histories = []
     if picked_history:
