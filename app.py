@@ -516,6 +516,7 @@ def _init():
         "proxies": [], "use_proxy": False,
         "results": [], "log": [],
         "logic_rules": [], "logic_rule_count": 0,
+        "accuracy_mode": "balanced",
         "authenticated": False,
     }
     for k, v in defaults.items():
@@ -845,6 +846,77 @@ def _estimate_logic_distribution(configured: list, logic_rules: list, sample_siz
             })
 
     return rows, max_delta
+
+
+def _validate_before_run(configured: list, logic_rules: list, accuracy_mode: str = "balanced") -> tuple:
+    errors = []
+    warnings = []
+    single_types = ("multiple_choice", "dropdown", "linear_scale")
+    mode = (accuracy_mode or "balanced").lower()
+
+    q_by_entry = {}
+    for q in configured:
+        entry_id = str(q.get("entry_id", "")).strip()
+        if entry_id:
+            q_by_entry[entry_id] = q
+
+    for q in configured:
+        if q.get("skip") or q.get("type") not in single_types:
+            continue
+        if not q.get("required"):
+            continue
+        options = q.get("options", [])
+        ratios = q.get("ratios", [])
+        if not options:
+            errors.append(f"Câu bắt buộc '{q.get('text', '')}' chưa có đáp án.")
+            continue
+        if ratios and len(ratios) == len(options):
+            if sum(max(0.0, float(r)) for r in ratios) <= 0:
+                errors.append(f"Câu bắt buộc '{q.get('text', '')}' có tổng % = 0.")
+
+    grouped_forbidden = {}
+    for i, rule in enumerate(logic_rules or [], start=1):
+        src = str(rule.get("source_entry_id", "")).strip()
+        tgt = str(rule.get("target_entry_id", "")).strip()
+        src_ans = rule.get("source_answer")
+        forb = rule.get("forbidden_answer")
+
+        if not src or src not in q_by_entry:
+            errors.append(f"Rule {i}: không tìm thấy câu nguồn.")
+            continue
+        if not tgt or tgt not in q_by_entry:
+            errors.append(f"Rule {i}: không tìm thấy câu đích.")
+            continue
+
+        src_q = q_by_entry[src]
+        tgt_q = q_by_entry[tgt]
+        if src_ans not in (src_q.get("options") or []):
+            errors.append(f"Rule {i}: đáp án nguồn không hợp lệ.")
+            continue
+        if forb not in (tgt_q.get("options") or []):
+            errors.append(f"Rule {i}: đáp án cấm không hợp lệ.")
+            continue
+
+        key = (src, src_ans, tgt)
+        grouped_forbidden.setdefault(key, set()).add(str(forb))
+
+    for (src, src_ans, tgt), forb_set in grouped_forbidden.items():
+        tgt_q = q_by_entry.get(tgt)
+        if not tgt_q:
+            continue
+        options = [str(o) for o in (tgt_q.get("options") or [])]
+        if options and all(opt in forb_set for opt in options):
+            src_text = q_by_entry.get(src, {}).get("text", src)
+            tgt_text = tgt_q.get("text", tgt)
+            msg = (
+                f"Rule conflict: nếu '{src_text}' = '{src_ans}' thì câu '{tgt_text}' bị cấm toàn bộ đáp án."
+            )
+            if mode == "strict":
+                errors.append(msg)
+            else:
+                warnings.append(msg)
+
+    return errors, warnings
 
 
 # ── Step 0: URL ───────────────────────────────────────────────────────────────
@@ -1184,6 +1256,20 @@ def page_configure():
 def page_settings():
     st.title("🚀 Cài đặt chạy")
 
+    st.subheader("🎯 Chế độ chính xác")
+    mode_label = st.radio(
+        "",
+        ["Balanced (giữ tỉ lệ tối đa)", "Strict (ưu tiên rule tuyệt đối)"],
+        horizontal=True,
+        index=0 if st.session_state.get("accuracy_mode", "balanced") == "balanced" else 1,
+        label_visibility="collapsed",
+    )
+    st.session_state.accuracy_mode = "strict" if mode_label.startswith("Strict") else "balanced"
+    if st.session_state.accuracy_mode == "strict":
+        st.caption("Rule mâu thuẫn sẽ bị chặn chạy để đảm bảo đúng logic tuyệt đối.")
+    else:
+        st.caption("Ưu tiên giữ phân phối %, rule mâu thuẫn sẽ được nới mềm nếu cần.")
+
     st.subheader("⏱️ Chế độ thời gian")
     timing = st.radio("", ["Delay ngẫu nhiên (giây)", "Khung giờ"],
                       horizontal=True, label_visibility="collapsed")
@@ -1223,6 +1309,35 @@ def page_settings():
         st.caption(f"✅ {len(proxies)} proxy sẽ được xoay vòng")
 
     st.divider()
+    st.subheader("🧪 Preview mô phỏng (không submit)")
+    if st.button("Chạy preview 300 lượt"):
+        preview_n = 300
+        with st.spinner("Đang mô phỏng..."):
+            rows, max_delta = _estimate_logic_distribution(
+                st.session_state.configured,
+                st.session_state.get("logic_rules", []),
+                sample_size=preview_n,
+            )
+            errors, warnings = _validate_before_run(
+                st.session_state.configured,
+                st.session_state.get("logic_rules", []),
+                st.session_state.get("accuracy_mode", "balanced"),
+            )
+        st.caption(f"Đã mô phỏng {preview_n} lượt, không gửi lên Google Form.")
+        st.write(f"Độ lệch tối đa so với % đã đặt: **{max_delta:.1f}%**")
+        if rows:
+            top_rows = sorted(rows, key=lambda r: abs(float(r["Lệch"].replace("%", ""))), reverse=True)[:5]
+            st.caption("Top 5 đáp án lệch nhiều nhất:")
+            for r in top_rows:
+                st.markdown(
+                    f"- `{r['Câu hỏi']}` · `{r['Đáp án']}`: đặt {r['% đã đặt']} → ước tính {r['% ước tính']} (lệch {r['Lệch']})"
+                )
+        for w in warnings[:5]:
+            st.warning(f"⚠️ {w}")
+        for e in errors[:5]:
+            st.error(f"❌ {e}")
+
+    st.divider()
     col1, col2 = st.columns(2)
     with col1:
         if st.button("← Quay lại"):
@@ -1230,6 +1345,18 @@ def page_settings():
             st.rerun()
     with col2:
         if st.button("▶️ Bắt đầu", type="primary"):
+            errors, warnings = _validate_before_run(
+                st.session_state.configured,
+                st.session_state.get("logic_rules", []),
+                st.session_state.get("accuracy_mode", "balanced"),
+            )
+            if errors:
+                st.error("Không thể bắt đầu do cấu hình chưa hợp lệ:")
+                for e in errors[:8]:
+                    st.markdown(f"- ❌ {e}")
+                return
+            for w in warnings[:5]:
+                st.warning(f"⚠️ {w}")
             st.session_state.step = 3
             st.session_state.results = []
             st.rerun()
@@ -1242,12 +1369,25 @@ def page_run():
     n = st.session_state.n_submissions
     configured = st.session_state.configured
     logic_rules = st.session_state.get("logic_rules", [])
+    accuracy_mode = st.session_state.get("accuracy_mode", "balanced")
     form_id = st.session_state.form_id
     proxies = st.session_state.proxies
     fbzx = st.session_state.get("fbzx")
 
     precompute_answers(configured, n)
     st.session_state.pop("first_debug", None)
+
+    errors, warnings = _validate_before_run(configured, logic_rules, accuracy_mode)
+    if errors:
+        st.error("Cấu hình hiện tại chưa hợp lệ, vui lòng quay lại bước cài đặt:")
+        for e in errors[:8]:
+            st.markdown(f"- ❌ {e}")
+        if st.button("⬅️ Quay lại cài đặt"):
+            st.session_state.step = 2
+            st.rerun()
+        return
+    for w in warnings[:3]:
+        st.warning(f"⚠️ {w}")
 
     schedule = None
     if st.session_state.timing_mode == "window":
@@ -1278,17 +1418,28 @@ def page_run():
                 proxy=proxy,
                 fbzx=fbzx,
                 logic_rules=logic_rules,
+                accuracy_mode=accuracy_mode,
             )
         except TypeError as e:
-            if "logic_rules" not in str(e):
+            if "logic_rules" not in str(e) and "accuracy_mode" not in str(e):
                 raise
-            success, answers, debug_info = submit_form(
-                form_id,
-                configured,
-                submission_index=i - 1,
-                proxy=proxy,
-                fbzx=fbzx,
-            )
+            try:
+                success, answers, debug_info = submit_form(
+                    form_id,
+                    configured,
+                    submission_index=i - 1,
+                    proxy=proxy,
+                    fbzx=fbzx,
+                    logic_rules=logic_rules,
+                )
+            except TypeError:
+                success, answers, debug_info = submit_form(
+                    form_id,
+                    configured,
+                    submission_index=i - 1,
+                    proxy=proxy,
+                    fbzx=fbzx,
+                )
         if not success and debug_info:
             st.session_state["first_debug"] = debug_info
         results.append({"success": success, "answers": answers})

@@ -342,23 +342,36 @@ def _compute_forbidden_map(picked_by_entry: dict, rules_by_source: dict) -> dict
     return forbidden_by_target
 
 
-def _find_forbidden_conflict(page_questions: list, forbidden_by_target: dict) -> str:
+def _sanitize_forbidden_map(page_questions: list, forbidden_by_target: dict, accuracy_mode: str = "balanced") -> tuple:
+    sanitized = {}
+    mode = (accuracy_mode or "balanced").lower()
+
     for q in page_questions:
         if not _is_single_choice_question(q):
             continue
         options = q.get("options", [])
         if not options:
             continue
+
         entry_id = str(q.get("entry_id", ""))
         forbidden = {str(x) for x in forbidden_by_target.get(entry_id, set())}
+        if not forbidden:
+            continue
+
         allowed = [opt for opt in options if str(opt) not in forbidden]
         if not allowed:
-            text = str(q.get("text", "")).strip() or f"entry.{entry_id}"
-            return f"Rule conflict: câu '{text}' không còn đáp án hợp lệ (đang bị cấm toàn bộ)."
-    return ""
+            if mode == "strict":
+                text = str(q.get("text", "")).strip() or f"entry.{entry_id}"
+                return {}, f"Rule conflict: câu '{text}' không còn đáp án hợp lệ (đang bị cấm toàn bộ)."
+            continue
+
+        sanitized[entry_id] = forbidden
+
+    return sanitized, ""
 
 
-def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: list = None) -> tuple:
+def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: list = None,
+                                 accuracy_mode: str = "balanced") -> tuple:
     picked_by_entry = {}
     chosen = {}
     page_count = _guess_page_count(questions)
@@ -387,7 +400,14 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
 
         for q in page_questions:
             entry_id = str(q["entry_id"])
-            current_forbidden = _compute_forbidden_map(picked_by_entry, rules_by_source)
+            current_forbidden_raw = _compute_forbidden_map(picked_by_entry, rules_by_source)
+            current_forbidden, conflict = _sanitize_forbidden_map(
+                page_questions,
+                current_forbidden_raw,
+                accuracy_mode=accuracy_mode,
+            )
+            if conflict:
+                return {}, {}, "", conflict
 
             if entry_id in forced_answers:
                 if q.get("_precomputed") or q.get("per_submission"):
@@ -420,12 +440,17 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
                     if target_id and target_answer is not None and target_id not in picked_by_entry:
                         forced_answers[target_id] = target_answer
 
-        conflict = _find_forbidden_conflict(page_questions, _compute_forbidden_map(picked_by_entry, rules_by_source))
-        if conflict:
-            return {}, {}, "", conflict
+        mode = (accuracy_mode or "balanced").lower()
 
         for _ in range(max(1, len(page_questions) + 1)):
-            forbidden_by_target = _compute_forbidden_map(picked_by_entry, rules_by_source)
+            forbidden_raw = _compute_forbidden_map(picked_by_entry, rules_by_source)
+            forbidden_by_target, conflict = _sanitize_forbidden_map(
+                page_questions,
+                forbidden_raw,
+                accuracy_mode=accuracy_mode,
+            )
+            if conflict:
+                return {}, {}, "", conflict
             changed = False
 
             for q in page_questions:
@@ -443,21 +468,22 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
 
                 if entry_id in forced_answers:
                     text = str(q.get("text", "")).strip() or f"entry.{entry_id}"
-                    return {}, {}, "", f"Rule conflict: câu '{text}' bị force vào đáp án đang bị cấm."
+                    if mode == "strict":
+                        return {}, {}, "", f"Rule conflict: câu '{text}' bị force vào đáp án đang bị cấm."
+                    continue
 
                 new_answer = _pick_answer_with_forbidden(q, idx, forbidden_options=forbidden)
                 if new_answer is None or str(new_answer) in forbidden:
                     text = str(q.get("text", "")).strip() or f"entry.{entry_id}"
-                    return {}, {}, "", f"Rule conflict: câu '{text}' không còn đáp án hợp lệ sau khi áp rule."
+                    if mode == "strict":
+                        return {}, {}, "", f"Rule conflict: câu '{text}' không còn đáp án hợp lệ sau khi áp rule."
+                    continue
 
                 if new_answer != old_answer:
                     picked_by_entry[entry_id] = new_answer
                     chosen[q["text"]] = new_answer
                     changed = True
 
-            conflict = _find_forbidden_conflict(page_questions, forbidden_by_target)
-            if conflict:
-                return {}, {}, "", conflict
             if not changed:
                 break
 
@@ -573,7 +599,8 @@ def build_payload(questions: list, picked_by_entry: dict, fbzx: str = None,
 
 def submit_form(form_id: str, questions: list, timeout: int = 15,
                 submission_index: int = 0, proxy: str = None,
-                fbzx: str = None, logic_rules: list = None) -> tuple:
+                fbzx: str = None, logic_rules: list = None,
+                accuracy_mode: str = "balanced") -> tuple:
     url = SUBMIT_URL_TEMPLATE.format(form_id=form_id)
     view_url = VIEW_URL_TEMPLATE.format(form_id=form_id)
     page_count = _guess_page_count(questions)
@@ -581,6 +608,7 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
         questions,
         submission_index,
         logic_rules=logic_rules,
+        accuracy_mode=accuracy_mode,
     )
     if rule_error:
         return False, chosen, rule_error
