@@ -919,6 +919,41 @@ def _validate_before_run(configured: list, logic_rules: list, accuracy_mode: str
     return errors, warnings
 
 
+def _build_preview_suggestions(rows: list, max_delta: float) -> list:
+    tips = []
+    if not rows:
+        return ["Chưa đủ dữ liệu preview để gợi ý. Hãy tăng số lượt mô phỏng."]
+
+    sorted_rows = sorted(
+        rows,
+        key=lambda r: abs(float(str(r.get("Lệch", "0")).replace("%", ""))),
+        reverse=True,
+    )
+
+    for r in sorted_rows[:3]:
+        try:
+            delta = float(str(r.get("Lệch", "0")).replace("%", ""))
+        except Exception:
+            continue
+        if abs(delta) < 1.0:
+            continue
+
+        q = r.get("Câu hỏi", "Câu hỏi")
+        opt = r.get("Đáp án", "Đáp án")
+        adjust = round(min(20.0, abs(delta) * 0.6), 1)
+        if delta > 0:
+            tips.append(f"Giảm trọng số `{opt}` ở `{q}` khoảng **{adjust} điểm %** để bám mục tiêu tốt hơn.")
+        else:
+            tips.append(f"Tăng trọng số `{opt}` ở `{q}` khoảng **{adjust} điểm %** để bám mục tiêu tốt hơn.")
+
+    if max_delta >= 10:
+        tips.append("Độ lệch còn cao; nên thử nới bớt rule hoặc đổi sang mode `Balanced` nếu ưu tiên sát %.")
+    elif max_delta <= 3:
+        tips.append("Phân phối hiện đã khá sát mục tiêu; có thể chạy thật.")
+
+    return tips[:4] if tips else ["Phân phối hiện đã ổn, chưa cần chỉnh thêm."]
+
+
 # ── Step 0: URL ───────────────────────────────────────────────────────────────
 def page_url():
     st.markdown("""
@@ -1330,6 +1365,7 @@ def page_settings():
                 st.session_state.get("logic_rules", []),
                 st.session_state.get("accuracy_mode", "balanced"),
             )
+        suggestions = _build_preview_suggestions(rows, max_delta)
         st.caption(f"Đã mô phỏng {int(preview_n)} lượt, không gửi lên Google Form.")
         st.write(f"Độ lệch tối đa so với % đã đặt: **{max_delta:.1f}%**")
         if rows:
@@ -1339,6 +1375,9 @@ def page_settings():
                 st.markdown(
                     f"- `{r['Câu hỏi']}` · `{r['Đáp án']}`: đặt {r['% đã đặt']} → ước tính {r['% ước tính']} (lệch {r['Lệch']})"
                 )
+        st.caption("🎯 Gợi ý tối ưu sát mục tiêu:")
+        for tip in suggestions:
+            st.markdown(f"- {tip}")
         for w in warnings[:5]:
             st.warning(f"⚠️ {w}")
         for e in errors[:5]:
