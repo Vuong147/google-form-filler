@@ -745,6 +745,108 @@ def _schedule(n, ws, we):
     return sorted([s + datetime.timedelta(seconds=random.uniform(0, total)) for _ in range(n)])
 
 
+def _pick_weighted_allowed(options: list, ratios: list, forbidden_options=None):
+    forbidden = {str(x) for x in (forbidden_options or set()) if x is not None}
+    allowed_idx = [i for i, opt in enumerate(options) if str(opt) not in forbidden]
+    if not allowed_idx:
+        return None
+
+    allowed_options = [options[i] for i in allowed_idx]
+    if ratios and len(ratios) == len(options):
+        weights = [max(0.0, float(ratios[i])) for i in allowed_idx]
+        if sum(weights) > 0:
+            return random.choices(allowed_options, weights=weights, k=1)[0]
+    return random.choice(allowed_options)
+
+
+def _estimate_logic_distribution(configured: list, logic_rules: list, sample_size: int = 1200):
+    single_types = ("multiple_choice", "dropdown", "linear_scale")
+    candidates = [
+        q for q in configured
+        if (not q.get("skip")) and q.get("type") in single_types and q.get("options")
+    ]
+    if not candidates:
+        return [], 0.0
+
+    rules_by_source = {}
+    for rule in (logic_rules or []):
+        src = str(rule.get("source_entry_id", "")).strip()
+        if not src:
+            continue
+        rules_by_source.setdefault(src, []).append(rule)
+
+    counts_by_entry = {
+        str(q["entry_id"]): {opt: 0 for opt in q.get("options", [])}
+        for q in candidates
+    }
+    shown_by_entry = {str(q["entry_id"]): 0 for q in candidates}
+
+    loops = max(200, int(sample_size))
+    for _ in range(loops):
+        forbidden_by_target = {}
+
+        for q in configured:
+            if q.get("skip") or q.get("type") not in single_types or not q.get("options"):
+                continue
+
+            entry_id = str(q["entry_id"])
+            answer = _pick_weighted_allowed(
+                q.get("options", []),
+                q.get("ratios", []),
+                forbidden_by_target.get(entry_id, set()),
+            )
+            if answer is None:
+                continue
+
+            if entry_id in shown_by_entry:
+                shown_by_entry[entry_id] += 1
+                if answer in counts_by_entry[entry_id]:
+                    counts_by_entry[entry_id][answer] += 1
+
+            for rule in rules_by_source.get(entry_id, []):
+                if answer != rule.get("source_answer"):
+                    continue
+                target_id = str(rule.get("target_entry_id", "")).strip()
+                forbidden_answer = rule.get("forbidden_answer")
+                if target_id and forbidden_answer is not None:
+                    forbidden_by_target.setdefault(target_id, set()).add(str(forbidden_answer))
+
+    rows = []
+    max_delta = 0.0
+    for idx, q in enumerate(candidates):
+        entry_id = str(q["entry_id"])
+        options = q.get("options", [])
+        ratios = q.get("ratios", [])
+        shown = shown_by_entry.get(entry_id, 0)
+        if shown <= 0:
+            continue
+
+        if ratios and len(ratios) == len(options) and sum(ratios) > 0:
+            base_total = float(sum(ratios))
+            base_pct = [float(r) / base_total * 100 for r in ratios]
+        else:
+            base_pct = [100.0 / len(options)] * len(options)
+
+        question_label = f"Câu {idx + 1}: {q.get('text', '')}"
+        if len(question_label) > 72:
+            question_label = question_label[:69] + "..."
+
+        for opt, base in zip(options, base_pct):
+            est = counts_by_entry[entry_id].get(opt, 0) / shown * 100
+            delta = est - base
+            max_delta = max(max_delta, abs(delta))
+            rows.append({
+                "Câu hỏi": question_label,
+                "Đáp án": opt,
+                "% đã đặt": f"{base:.1f}%",
+                "% ước tính": f"{est:.1f}%",
+                "Lệch": f"{delta:+.1f}%",
+                "Tần suất xuất hiện câu": f"{shown / loops * 100:.1f}%",
+            })
+
+    return rows, max_delta
+
+
 # ── Step 0: URL ───────────────────────────────────────────────────────────────
 def page_url():
     st.markdown("""
@@ -1023,6 +1125,25 @@ def page_configure():
 
             if logic_rules:
                 st.caption(f"Đã tạo {len(logic_rules)} rule logic.")
+                sample_size = min(2000, max(400, st.session_state.n_submissions * 15))
+                rows, max_delta = _estimate_logic_distribution(
+                    configured,
+                    logic_rules,
+                    sample_size=sample_size,
+                )
+                if rows:
+                    st.caption(
+                        f"📊 Ước tính nhanh tỉ lệ thực tế sau khi áp rule "
+                        f"(mô phỏng {sample_size:,} lượt)."
+                    )
+                    st.dataframe(rows, use_container_width=True)
+                if max_delta >= 10:
+                    st.warning(
+                        f"⚠️ Rule đang làm lệch tối đa khoảng {max_delta:.1f}% so với % đã đặt. "
+                        "Bạn có thể giảm trọng số đáp án bị cấm hoặc nới rule để phân phối tự nhiên hơn."
+                    )
+                elif max_delta >= 5:
+                    st.info(f"ℹ️ Rule làm lệch khoảng {max_delta:.1f}% — vẫn ổn nếu bạn ưu tiên logic hơn tỉ lệ tuyệt đối.")
             else:
                 st.caption("Chưa có rule nào. Tool sẽ chạy theo tỉ lệ bình thường.")
 

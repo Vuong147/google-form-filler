@@ -252,6 +252,17 @@ def _pick_answer_with_forbidden(question: dict, idx: int = 0, forbidden_options=
     if not allowed_idx:
         return pick_answer(question, idx)
 
+    def _sample_allowed():
+        filtered_options = [options[i] for i in allowed_idx]
+        if not filtered_options:
+            return None
+
+        if ratios and len(ratios) == len(options):
+            filtered_weights = [max(0.0, float(ratios[i])) for i in allowed_idx]
+            if sum(filtered_weights) > 0:
+                return random.choices(filtered_options, weights=filtered_weights, k=1)[0]
+        return random.choice(filtered_options)
+
     required = bool(question.get("required", False))
     ratios = question.get("ratios", [])
     precomputed = question.get("_precomputed")
@@ -261,21 +272,17 @@ def _pick_answer_with_forbidden(question: dict, idx: int = 0, forbidden_options=
         answer = precomputed[cursor % len(precomputed)]
         question["_cursor"] = cursor + 1
         if str(answer) in forbidden:
-            return options[allowed_idx[0]]
+            sampled = _sample_allowed()
+            return sampled if sampled is not None else answer
         if required and not answer:
-            return options[allowed_idx[0]]
+            sampled = _sample_allowed()
+            return sampled if sampled is not None else answer
         return answer
 
-    filtered_options = [options[i] for i in allowed_idx]
-    if ratios and len(ratios) == len(options):
-        filtered_weights = [max(0.0, float(ratios[i])) for i in allowed_idx]
-        if sum(filtered_weights) > 0:
-            answer = random.choices(filtered_options, weights=filtered_weights, k=1)[0]
-            if required and not answer:
-                return filtered_options[0]
-            return answer
-
-    return filtered_options[0]
+    sampled = _sample_allowed()
+    if required and not sampled:
+        return options[allowed_idx[0]]
+    return sampled
 
 
 def _guess_page_count(questions: list) -> int:
