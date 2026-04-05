@@ -16,12 +16,12 @@ st.set_page_config(page_title="Tool của a zai Hàn Quốc", page_icon="🤖", 
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
     /* ── Dark Gray Gradient Theme ── */
     .stApp {
-        font-family: 'Inter', sans-serif;
-        background: linear-gradient(135deg, #0f1319 0%, #1a212b 45%, #262f3d 100%);
+        font-family: 'Space Grotesk', sans-serif;
+        background: radial-gradient(circle at 20% 10%, #10233f 0%, #0a1428 38%, #060d1d 100%);
         overflow-x: hidden;
     }
     .stApp::before {
@@ -31,7 +31,7 @@ st.markdown("""
         left: -10%;
         width: 60%;
         height: 60%;
-        background: radial-gradient(ellipse, rgba(96, 165, 250, 0.16) 0%, transparent 70%);
+        background: radial-gradient(ellipse, rgba(34, 211, 238, 0.2) 0%, transparent 72%);
         animation: blob1 20s ease-in-out infinite alternate;
         pointer-events: none;
         z-index: 0;
@@ -43,7 +43,7 @@ st.markdown("""
         right: -8%;
         width: 58%;
         height: 58%;
-        background: radial-gradient(ellipse, rgba(148, 163, 184, 0.16) 0%, transparent 72%);
+        background: radial-gradient(ellipse, rgba(14, 165, 233, 0.18) 0%, transparent 74%);
         animation: blob2 24s ease-in-out infinite alternate;
         pointer-events: none;
         z-index: 0;
@@ -51,35 +51,37 @@ st.markdown("""
 
     .stApp > div { position: relative; z-index: 1; }
 
-    .sakura-layer {
+    .mesh-layer {
         position: fixed;
         inset: 0;
         pointer-events: none;
         z-index: 0;
         overflow: hidden;
     }
-    .sakura {
+    .mesh-orb {
         position: absolute;
-        top: -12vh;
+        top: var(--top);
         left: var(--left);
         width: var(--size);
-        height: calc(var(--size) * 0.78);
-        background: linear-gradient(135deg, #ffeef6 0%, #ff9cc5 80%);
-        border-radius: 72% 0 72% 0;
-        opacity: 0.62;
-        filter: drop-shadow(0 1px 2px rgba(255, 150, 200, 0.25));
-        animation: sakura-fall var(--dur) linear infinite;
+        height: var(--size);
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, rgba(125, 250, 255, 0.65), rgba(15, 118, 161, 0.08));
+        filter: blur(1.2px);
+        opacity: 0.48;
+        animation: mesh-float var(--dur) ease-in-out infinite;
         animation-delay: var(--delay);
     }
-    .sakura::after {
+    .mesh-line {
         content: '';
         position: absolute;
-        width: 55%;
-        height: 55%;
-        top: 22%;
-        left: 24%;
-        border-radius: 72% 0 72% 0;
-        background: rgba(255, 235, 246, 0.78);
+        top: var(--top);
+        left: var(--left);
+        width: var(--width);
+        height: 1px;
+        background: linear-gradient(90deg, rgba(103, 232, 249, 0), rgba(103, 232, 249, 0.45), rgba(103, 232, 249, 0));
+        transform: rotate(var(--angle));
+        animation: mesh-slide var(--dur) ease-in-out infinite;
+        animation-delay: var(--delay);
     }
 
     @keyframes blob1 {
@@ -92,34 +94,38 @@ st.markdown("""
         50%  { transform: translate(-6%, -3%) scale(1.07); }
         100% { transform: translate(3%, 4%) scale(0.94); }
     }
-    @keyframes sakura-fall {
+    @keyframes mesh-float {
         0% {
-            transform: translate3d(0, -12vh, 0) rotate(0deg);
-            opacity: 0;
+            transform: translate3d(0, 0, 0) scale(1);
+            opacity: 0.34;
         }
-        15% { opacity: 0.62; }
         50% {
-            transform: translate3d(16px, 52vh, 0) rotate(155deg);
-            opacity: 0.6;
+            transform: translate3d(26px, -20px, 0) scale(1.18);
+            opacity: 0.58;
         }
         100% {
-            transform: translate3d(-14px, 112vh, 0) rotate(325deg);
-            opacity: 0.08;
+            transform: translate3d(-20px, 18px, 0) scale(0.92);
+            opacity: 0.28;
         }
     }
+    @keyframes mesh-slide {
+        0% { transform: translateX(0) rotate(var(--angle)); opacity: 0.22; }
+        50% { transform: translateX(16px) rotate(var(--angle)); opacity: 0.45; }
+        100% { transform: translateX(-10px) rotate(var(--angle)); opacity: 0.2; }
+    }
     /* ── Typography ── */
-    h1 { color: #f8fafc !important; letter-spacing: -0.5px; font-weight: 700 !important; }
-    h2, h3 { color: #e2e8f0 !important; font-weight: 600 !important; }
+    h1 { color: #ecfeff !important; letter-spacing: -0.6px; font-weight: 700 !important; }
+    h2, h3 { color: #cffafe !important; font-weight: 600 !important; }
     p, label, .stMarkdown { color: #cbd5e1 !important; }
 
     /* ── Main content area ── */
     .block-container {
-        background: rgba(15, 20, 28, 0.72);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: linear-gradient(160deg, rgba(10, 24, 44, 0.74), rgba(8, 19, 36, 0.66));
+        backdrop-filter: blur(18px);
+        border: 1px solid rgba(103, 232, 249, 0.2);
         border-radius: 20px;
         padding: 2rem 2.5rem !important;
-        box-shadow: 0 14px 36px rgba(2, 6, 23, 0.55);
+        box-shadow: 0 16px 44px rgba(2, 8, 23, 0.65), inset 0 1px 0 rgba(125, 250, 255, 0.12);
     }
 
     /* ── Inputs ── */
@@ -136,8 +142,8 @@ st.markdown("""
     .stTextInput > div > div > input:focus,
     .stNumberInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: #60a5fa !important;
-        box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.22) !important;
+        border-color: #22d3ee !important;
+        box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.24) !important;
     }
 
     /* ── Selectbox / Radio ── */
@@ -150,18 +156,18 @@ st.markdown("""
 
     /* ── Primary button ── */
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #2563eb, #3b82f6);
+        background: linear-gradient(135deg, #0891b2, #22d3ee);
         color: white !important;
         border: none !important;
         border-radius: 12px !important;
         font-weight: 600 !important;
         padding: 0.55rem 2rem !important;
-        box-shadow: 0 8px 24px rgba(37, 99, 235, 0.42);
+        box-shadow: 0 8px 24px rgba(6, 182, 212, 0.42);
         transition: transform 0.2s, box-shadow 0.2s;
     }
     .stButton > button[kind="primary"]:hover {
         transform: translateY(-2px);
-        box-shadow: 0 12px 34px rgba(37, 99, 235, 0.55);
+        box-shadow: 0 12px 34px rgba(8, 145, 178, 0.58);
     }
     /* ── Secondary button ── */
     .stButton > button:not([kind="primary"]) {
@@ -193,14 +199,43 @@ st.markdown("""
 
     /* ── Metric cards ── */
     [data-testid="stMetric"] {
-        background: rgba(15, 23, 34, 0.8);
-        border: 1px solid rgba(100, 116, 139, 0.28);
+        background: rgba(9, 20, 36, 0.78);
+        border: 1px solid rgba(103, 232, 249, 0.22);
         border-radius: 16px;
         padding: 1rem;
         backdrop-filter: blur(10px);
         box-shadow: 0 8px 20px rgba(2, 6, 23, 0.45);
     }
-    [data-testid="stMetricValue"] { color: #f8fafc !important; font-weight: 700 !important; }
+    [data-testid="stMetricValue"] { color: #ecfeff !important; font-weight: 700 !important; }
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(120px, 1fr));
+        gap: 0.9rem;
+        margin-top: 0.4rem;
+    }
+    .kpi-card {
+        background: linear-gradient(165deg, rgba(10, 24, 44, 0.82), rgba(8, 20, 36, 0.74));
+        border: 1px solid rgba(103, 232, 249, 0.26);
+        border-radius: 16px;
+        padding: 0.95rem 1rem;
+        box-shadow: inset 0 1px 0 rgba(186, 230, 253, 0.12), 0 10px 26px rgba(2, 10, 23, 0.52);
+    }
+    .kpi-label {
+        color: #a5f3fc;
+        font-size: 0.88rem;
+        font-weight: 500;
+        margin-bottom: 0.36rem;
+    }
+    .kpi-value {
+        color: #ecfeff;
+        font-size: 2rem;
+        line-height: 1;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+    @media (max-width: 760px) {
+        .kpi-grid { grid-template-columns: 1fr; }
+    }
 
     /* ── Progress bar ── */
     .stProgress > div > div > div {
@@ -366,18 +401,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("""
-<div class="sakura-layer" aria-hidden="true">
-  <span class="sakura" style="--left:5%;--dur:18s;--delay:-2s;--size:12px"></span>
-  <span class="sakura" style="--left:13%;--dur:22s;--delay:-7s;--size:10px"></span>
-  <span class="sakura" style="--left:21%;--dur:20s;--delay:-12s;--size:11px"></span>
-  <span class="sakura" style="--left:30%;--dur:24s;--delay:-4s;--size:13px"></span>
-  <span class="sakura" style="--left:39%;--dur:19s;--delay:-10s;--size:11px"></span>
-  <span class="sakura" style="--left:48%;--dur:25s;--delay:-6s;--size:14px"></span>
-  <span class="sakura" style="--left:57%;--dur:21s;--delay:-14s;--size:11px"></span>
-  <span class="sakura" style="--left:66%;--dur:23s;--delay:-8s;--size:12px"></span>
-  <span class="sakura" style="--left:75%;--dur:20s;--delay:-15s;--size:10px"></span>
-  <span class="sakura" style="--left:84%;--dur:24s;--delay:-5s;--size:13px"></span>
-  <span class="sakura" style="--left:92%;--dur:19s;--delay:-11s;--size:11px"></span>
+<div class="mesh-layer" aria-hidden="true">
+  <span class="mesh-orb" style="--left:8%;--top:20%;--size:220px;--dur:22s;--delay:-4s"></span>
+  <span class="mesh-orb" style="--left:56%;--top:9%;--size:260px;--dur:26s;--delay:-11s"></span>
+  <span class="mesh-orb" style="--left:73%;--top:58%;--size:210px;--dur:24s;--delay:-8s"></span>
+  <span class="mesh-orb" style="--left:18%;--top:68%;--size:240px;--dur:28s;--delay:-16s"></span>
+  <span class="mesh-line" style="--left:10%;--top:36%;--width:40%;--angle:11deg;--dur:18s;--delay:-6s"></span>
+  <span class="mesh-line" style="--left:34%;--top:63%;--width:46%;--angle:-8deg;--dur:22s;--delay:-12s"></span>
+  <span class="mesh-line" style="--left:46%;--top:22%;--width:34%;--angle:17deg;--dur:20s;--delay:-9s"></span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1159,10 +1190,35 @@ def page_run():
     st.divider()
     ok = sum(1 for r in results if r["success"])
     fail = n - ok
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Tổng submit", n)
-    col2.metric("✅ Thành công", ok)
-    col3.metric("❌ Thất bại", fail)
+    def _kpi_html(total_val: int, ok_val: int, fail_val: int) -> str:
+        return f"""
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Tổng submit</div>
+                <div class="kpi-value">{total_val}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">✅ Thành công</div>
+                <div class="kpi-value">{ok_val}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">❌ Thất bại</div>
+                <div class="kpi-value">{fail_val}</div>
+            </div>
+        </div>
+        """
+
+    kpi_box = st.empty()
+    frames = 18
+    for frame in range(1, frames + 1):
+        progress = frame / frames
+        eased = 1 - (1 - progress) ** 3
+        cur_n = int(round(n * eased))
+        cur_ok = int(round(ok * eased))
+        cur_fail = int(round(fail * eased))
+        kpi_box.markdown(_kpi_html(cur_n, cur_ok, cur_fail), unsafe_allow_html=True)
+        time.sleep(0.018)
+    kpi_box.markdown(_kpi_html(n, ok, fail), unsafe_allow_html=True)
     if ok > 0:
         st.success(f"🎉 Hoàn thành! Tỉ lệ thành công: {ok/n*100:.1f}%")
     else:
