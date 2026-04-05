@@ -146,6 +146,7 @@ def precompute_answers(questions: list, n: int) -> None:
 
 def pick_answer(question: dict, idx: int = 0):
     q_type = question.get("type")
+    required = bool(question.get("required", False))
     options = question.get("options", [])
     ratios = question.get("ratios", [])
     answers = question.get("answers", [])
@@ -157,44 +158,79 @@ def pick_answer(question: dict, idx: int = 0):
         if precomputed:
             answer = precomputed[cursor % len(precomputed)]
             question["_cursor"] = cursor + 1
+            if required and not answer and options:
+                return options[0]
             return answer
         if not options or not ratios:
-            return None
-        return random.choices(options, weights=ratios, k=1)[0]
+            return options[0] if (required and options) else None
+        answer = random.choices(options, weights=ratios, k=1)[0]
+        if required and not answer and options:
+            return options[0]
+        return answer
 
     elif q_type == "checkbox":
         if precomputed:
             item = precomputed[cursor % len(precomputed)]
             question["_cursor"] = cursor + 1
-            return item if isinstance(item, list) else [item]
+            result = item if isinstance(item, list) else [item]
+            if required and not result and options:
+                return [options[0]]
+            return result
         if not options or not ratios:
-            return []
+            return [options[0]] if (required and options) else []
         selected = [opt for opt, prob in zip(options, ratios) if random.random() < prob]
-        if not selected and options:
+        if (required or not selected) and not selected and options:
             selected = [random.choice(options)]
         return selected
 
     elif q_type in ("short_text", "paragraph"):
         if not answers:
-            return ""
+            return "N/A" if required else ""
         if per_submission:
             answer = answers[cursor % len(answers)]
             question["_cursor"] = cursor + 1
+            if required and not str(answer).strip():
+                for a in answers:
+                    if str(a).strip():
+                        return a
+                return "N/A"
             return answer
         if precomputed:
             answer = precomputed[cursor % len(precomputed)]
             question["_cursor"] = cursor + 1
+            if required and not str(answer).strip():
+                for a in answers:
+                    if str(a).strip():
+                        return a
+                return "N/A"
             return answer
-        return random.choices(answers, weights=ratios, k=1)[0]
+        answer = random.choices(answers, weights=ratios, k=1)[0]
+        if required and not str(answer).strip():
+            for a in answers:
+                if str(a).strip():
+                    return a
+            return "N/A"
+        return answer
 
     elif q_type in ("date", "time"):
         if not answers:
-            return ""
+            return "" if not required else None
         if precomputed:
             answer = precomputed[cursor % len(precomputed)]
             question["_cursor"] = cursor + 1
+            if required and not str(answer).strip():
+                for a in answers:
+                    if str(a).strip():
+                        return a
+                return None
             return answer
-        return random.choice(answers)
+        answer = random.choice(answers)
+        if required and not str(answer).strip():
+            for a in answers:
+                if str(a).strip():
+                    return a
+            return None
+        return answer
 
     return None
 
@@ -470,6 +506,9 @@ def submit_form(form_id: str, questions: list, timeout: int = 15,
             if resp.status_code == 200 and is_success(resp.text):
                 return True, ""
             if resp.status_code != 200:
+                body = (resp.text or "")[:400]
+                if body:
+                    return False, f"HTTP {resp.status_code} ({tag})\n{body}"
                 return False, f"HTTP {resp.status_code} ({tag})"
             return False, f"{tag}\n" + resp.text[:600]
 

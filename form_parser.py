@@ -110,6 +110,7 @@ def parse_form(url: str) -> tuple:
 
                 for row_entry in entry_data:
                     row_id = row_entry[0]
+                    required = bool(row_entry[2]) if len(row_entry) > 2 else False
                     # Tên hàng thường ở index 3[0]
                     row_label = ""
                     try:
@@ -125,6 +126,7 @@ def parse_form(url: str) -> tuple:
                         "type_code": q_type_code,
                         "entry_id": str(row_id),
                         "page_index": page_index,
+                        "required": required,
                         "options": col_options,
                         "ratios": [],
                         "answers": [],
@@ -137,6 +139,7 @@ def parse_form(url: str) -> tuple:
             # ── Câu hỏi thông thường ──
             first_entry = entry_data[0]
             entry_id = first_entry[0]
+            required = bool(first_entry[2]) if len(first_entry) > 2 else False
             options = []
 
             option_routes = {}
@@ -175,6 +178,7 @@ def parse_form(url: str) -> tuple:
                 "type_code": q_type_code,
                 "entry_id": str(entry_id),
                 "page_index": page_index,
+                "required": required,
                 "options": options,
                 "option_routes": option_routes,
                 "ratios": [],
