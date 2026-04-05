@@ -1252,6 +1252,46 @@ def page_configure():
             else:
                 st.caption("Chưa có rule nào. Tool sẽ chạy theo tỉ lệ bình thường.")
 
+    st.divider()
+    st.subheader("🧪 Preview mô phỏng (không submit)")
+    preview_n = st.number_input(
+        "Số lượt preview",
+        min_value=50,
+        max_value=5000,
+        value=300,
+        step=50,
+        key="preview_sample_size",
+    )
+    if st.button("Chạy preview"):
+        with st.spinner("Đang mô phỏng..."):
+            rows, max_delta = _estimate_logic_distribution(
+                configured,
+                logic_rules,
+                sample_size=int(preview_n),
+            )
+            errors, warnings = _validate_before_run(
+                configured,
+                logic_rules,
+                st.session_state.get("accuracy_mode", "balanced"),
+            )
+        suggestions = _build_preview_suggestions(rows, max_delta)
+        st.caption(f"Đã mô phỏng {int(preview_n)} lượt, không gửi lên Google Form.")
+        st.write(f"Độ lệch tối đa so với % đã đặt: **{max_delta:.1f}%**")
+        if rows:
+            top_rows = sorted(rows, key=lambda r: abs(float(r["Lệch"].replace("%", ""))), reverse=True)[:5]
+            st.caption("Top 5 đáp án lệch nhiều nhất:")
+            for r in top_rows:
+                st.markdown(
+                    f"- `{r['Câu hỏi']}` · `{r['Đáp án']}`: đặt {r['% đã đặt']} → ước tính {r['% ước tính']} (lệch {r['Lệch']})"
+                )
+        st.caption("🎯 Gợi ý tối ưu sát mục tiêu:")
+        for tip in suggestions:
+            st.markdown(f"- {tip}")
+        for w in warnings[:5]:
+            st.warning(f"⚠️ {w}")
+        for e in errors[:5]:
+            st.error(f"❌ {e}")
+
     # Tính LCM từ tỉ lệ THỰC TẾ đã nhập
     global_lcm = 1
     for cfg_q in configured:
@@ -1342,46 +1382,6 @@ def page_settings():
     st.session_state.proxies = proxies
     if proxies:
         st.caption(f"✅ {len(proxies)} proxy sẽ được xoay vòng")
-
-    st.divider()
-    st.subheader("🧪 Preview mô phỏng (không submit)")
-    preview_n = st.number_input(
-        "Số lượt preview",
-        min_value=50,
-        max_value=5000,
-        value=300,
-        step=50,
-        key="preview_sample_size",
-    )
-    if st.button("Chạy preview"):
-        with st.spinner("Đang mô phỏng..."):
-            rows, max_delta = _estimate_logic_distribution(
-                st.session_state.configured,
-                st.session_state.get("logic_rules", []),
-                sample_size=int(preview_n),
-            )
-            errors, warnings = _validate_before_run(
-                st.session_state.configured,
-                st.session_state.get("logic_rules", []),
-                st.session_state.get("accuracy_mode", "balanced"),
-            )
-        suggestions = _build_preview_suggestions(rows, max_delta)
-        st.caption(f"Đã mô phỏng {int(preview_n)} lượt, không gửi lên Google Form.")
-        st.write(f"Độ lệch tối đa so với % đã đặt: **{max_delta:.1f}%**")
-        if rows:
-            top_rows = sorted(rows, key=lambda r: abs(float(r["Lệch"].replace("%", ""))), reverse=True)[:5]
-            st.caption("Top 5 đáp án lệch nhiều nhất:")
-            for r in top_rows:
-                st.markdown(
-                    f"- `{r['Câu hỏi']}` · `{r['Đáp án']}`: đặt {r['% đã đặt']} → ước tính {r['% ước tính']} (lệch {r['Lệch']})"
-                )
-        st.caption("🎯 Gợi ý tối ưu sát mục tiêu:")
-        for tip in suggestions:
-            st.markdown(f"- {tip}")
-        for w in warnings[:5]:
-            st.warning(f"⚠️ {w}")
-        for e in errors[:5]:
-            st.error(f"❌ {e}")
 
     st.divider()
     col1, col2 = st.columns(2)
