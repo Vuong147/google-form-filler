@@ -235,6 +235,49 @@ def pick_answer(question: dict, idx: int = 0):
     return None
 
 
+def _pick_answer_with_forbidden(question: dict, idx: int = 0, forbidden_options=None):
+    forbidden = {str(x) for x in (forbidden_options or set()) if x is not None}
+    if not forbidden:
+        return pick_answer(question, idx)
+
+    q_type = question.get("type")
+    if q_type not in ("multiple_choice", "dropdown", "linear_scale"):
+        return pick_answer(question, idx)
+
+    options = question.get("options", [])
+    if not options:
+        return pick_answer(question, idx)
+
+    allowed_idx = [i for i, opt in enumerate(options) if str(opt) not in forbidden]
+    if not allowed_idx:
+        return pick_answer(question, idx)
+
+    required = bool(question.get("required", False))
+    ratios = question.get("ratios", [])
+    precomputed = question.get("_precomputed")
+    cursor = int(question.get("_cursor", 0))
+
+    if precomputed:
+        answer = precomputed[cursor % len(precomputed)]
+        question["_cursor"] = cursor + 1
+        if str(answer) in forbidden:
+            return options[allowed_idx[0]]
+        if required and not answer:
+            return options[allowed_idx[0]]
+        return answer
+
+    filtered_options = [options[i] for i in allowed_idx]
+    if ratios and len(ratios) == len(options):
+        filtered_weights = [max(0.0, float(ratios[i])) for i in allowed_idx]
+        if sum(filtered_weights) > 0:
+            answer = random.choices(filtered_options, weights=filtered_weights, k=1)[0]
+            if required and not answer:
+                return filtered_options[0]
+            return answer
+
+    return filtered_options[0]
+
+
 def _guess_page_count(questions: list) -> int:
     max_idx = 0
     for q in questions:
@@ -279,6 +322,7 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
     visited = [0]
     current_page = 0
     forced_answers = {}
+    forbidden_by_target = {}
 
     rules_by_source = {}
     for r in (logic_rules or []):
@@ -307,7 +351,11 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
                     _ = pick_answer(q, idx)
                 answer = forced_answers[entry_id]
             else:
-                answer = pick_answer(q, idx)
+                answer = _pick_answer_with_forbidden(
+                    q,
+                    idx,
+                    forbidden_options=forbidden_by_target.get(entry_id, set()),
+                )
 
             if answer is None:
                 continue
@@ -325,6 +373,9 @@ def _pick_answers_for_submission(questions: list, idx: int = 0, logic_rules: lis
                     if answer != rule.get("source_answer"):
                         continue
                     target_id = str(rule.get("target_entry_id", "")).strip()
+                    forbidden_answer = rule.get("forbidden_answer")
+                    if target_id and forbidden_answer is not None:
+                        forbidden_by_target.setdefault(target_id, set()).add(forbidden_answer)
                     target_answer = rule.get("target_answer")
                     if target_id and target_answer is not None and target_id not in picked_by_entry:
                         forced_answers[target_id] = target_answer

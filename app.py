@@ -1009,7 +1009,7 @@ def page_configure():
                 tgt_q = logic_candidates[tgt_idx]
                 with d2:
                     tgt_answer = st.selectbox(
-                        "Sẽ chọn đáp án",
+                        "Không được chọn đáp án",
                         options=tgt_q.get("options", []),
                         key=f"logic_tgt_opt_{ridx}",
                     )
@@ -1018,7 +1018,7 @@ def page_configure():
                     "source_entry_id": str(src_q["entry_id"]),
                     "source_answer": src_answer,
                     "target_entry_id": str(tgt_q["entry_id"]),
-                    "target_answer": tgt_answer,
+                    "forbidden_answer": tgt_answer,
                 })
 
             if logic_rules:
