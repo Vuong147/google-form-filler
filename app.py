@@ -1,11 +1,14 @@
 import base64
+import csv
 import datetime
 import hashlib
+import io
 import json
 import math
 import os
 import random
 import time
+import unicodedata
 
 import streamlit as st
 
@@ -730,6 +733,111 @@ def _min_n_for_exact(ratios: list) -> int:
     return lcm
 
 
+def _normalize_text_key(value: str) -> str:
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = text.replace("_", " ").replace("\n", " ").strip().lower()
+    return " ".join(text.split())
+
+
+def _read_ratio_rows(uploaded_file):
+    ext = os.path.splitext(uploaded_file.name or "")[1].lower()
+    if ext == ".csv":
+        raw = uploaded_file.getvalue().decode("utf-8-sig", errors="ignore")
+        reader = csv.DictReader(io.StringIO(raw))
+        return [dict(r) for r in reader]
+
+    if ext in (".xlsx", ".xlsm"):
+        try:
+            from openpyxl import load_workbook
+        except Exception as exc:
+            raise ValueError("Thiếu thư viện openpyxl. Hãy cài: pip install openpyxl") from exc
+
+        wb = load_workbook(io.BytesIO(uploaded_file.getvalue()), data_only=True, read_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            return []
+
+        headers = [str(v).strip() if v is not None else "" for v in rows[0]]
+        data = []
+        for row in rows[1:]:
+            item = {}
+            for idx, head in enumerate(headers):
+                if not head:
+                    continue
+                item[head] = "" if idx >= len(row) or row[idx] is None else str(row[idx]).strip()
+            if item:
+                data.append(item)
+        return data
+
+    raise ValueError("Chỉ hỗ trợ file .csv hoặc .xlsx")
+
+
+def _extract_ratio_mapping(uploaded_file):
+    rows = _read_ratio_rows(uploaded_file)
+    if not rows:
+        return {}, ["File không có dữ liệu."]
+
+    headers = list(rows[0].keys())
+    header_map = {_normalize_text_key(h): h for h in headers}
+
+    def _find_col(candidates):
+        for c in candidates:
+            col = header_map.get(_normalize_text_key(c))
+            if col:
+                return col
+        return None
+
+    question_col = _find_col([
+        "question_text", "question", "cau hoi", "câu hỏi", "question text",
+    ])
+    option_col = _find_col([
+        "option_text", "option", "dap an", "đáp án", "answer", "answer_text",
+    ])
+    weight_col = _find_col([
+        "weight", "ratio", "ti le", "tỷ lệ", "phan tram", "percent", "%",
+    ])
+
+    if not question_col or not option_col or not weight_col:
+        raise ValueError(
+            "Thiếu cột bắt buộc. Cần có 3 cột: question_text, option_text, weight"
+        )
+
+    mapping = {}
+    issues = []
+    duplicates = 0
+
+    for idx, row in enumerate(rows, start=2):
+        q_text = str(row.get(question_col, "")).strip()
+        o_text = str(row.get(option_col, "")).strip()
+        w_raw = str(row.get(weight_col, "")).strip()
+
+        if not q_text or not o_text:
+            issues.append(f"Dòng {idx}: thiếu question_text hoặc option_text")
+            continue
+
+        cleaned = w_raw.replace("%", "").replace(",", ".").strip()
+        try:
+            weight = float(cleaned)
+        except ValueError:
+            issues.append(f"Dòng {idx}: weight không hợp lệ ({w_raw})")
+            continue
+
+        if weight < 0:
+            issues.append(f"Dòng {idx}: weight phải >= 0")
+            continue
+
+        key = (_normalize_text_key(q_text), _normalize_text_key(o_text))
+        if key in mapping:
+            duplicates += 1
+        mapping[key] = weight
+
+    if duplicates:
+        issues.append(f"Có {duplicates} dòng bị trùng, dùng giá trị ở dòng cuối.")
+    return mapping, issues
+
+
 def _schedule(n, ws, we):
     now = datetime.datetime.now()
     today = now.date()
@@ -1029,6 +1137,63 @@ def page_configure():
     n = st.number_input("Số lần submit", min_value=1, max_value=10000,
                         value=st.session_state.n_submissions, step=1)
     st.session_state.n_submissions = int(n)
+    st.divider()
+
+    st.subheader("📥 Import tỉ lệ nhanh")
+    st.caption("Upload file CSV/XLSX gồm 3 cột: `question_text`, `option_text`, `weight`.")
+    ratio_file = st.file_uploader("File tỉ lệ", type=["csv", "xlsx"], key="ratio_import_file")
+    if st.button("Áp dụng tỉ lệ từ file", disabled=ratio_file is None):
+        try:
+            ratio_map, issues = _extract_ratio_mapping(ratio_file)
+            matched_options = 0
+            matched_questions = set()
+
+            for i, q in enumerate(questions):
+                if q.get("type") not in ("multiple_choice", "dropdown", "linear_scale"):
+                    continue
+                if not q.get("options"):
+                    continue
+
+                q_key = _normalize_text_key(q.get("text", ""))
+                for j, opt in enumerate(q["options"]):
+                    key = (q_key, _normalize_text_key(opt))
+                    if key in ratio_map:
+                        st.session_state[f"q{i}_o{j}"] = float(ratio_map[key])
+                        matched_options += 1
+                        matched_questions.add(i)
+
+            if matched_options == 0:
+                st.session_state.ratio_import_feedback = {
+                    "level": "warning",
+                    "message": "Không map được dòng nào. Kiểm tra lại text câu hỏi/đáp án trong file.",
+                }
+            else:
+                msg = (
+                    f"Đã map {matched_options} đáp án ở {len(matched_questions)} câu hỏi. "
+                    "Trọng số đã được đổ vào form."
+                )
+                if issues:
+                    msg += f" ({len(issues)} cảnh báo khi đọc file)"
+                st.session_state.ratio_import_feedback = {"level": "success", "message": msg}
+
+            st.session_state.ratio_import_issues = issues[:10]
+        except Exception as exc:
+            st.session_state.ratio_import_feedback = {"level": "error", "message": f"Import thất bại: {exc}"}
+            st.session_state.ratio_import_issues = []
+        st.rerun()
+
+    feedback = st.session_state.get("ratio_import_feedback")
+    if feedback:
+        level = feedback.get("level")
+        message = feedback.get("message", "")
+        if level == "success":
+            st.success(message)
+        elif level == "warning":
+            st.warning(message)
+        else:
+            st.error(message)
+    for issue in st.session_state.get("ratio_import_issues", []):
+        st.caption(f"- {issue}")
     st.divider()
 
     configured = []
