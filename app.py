@@ -7,6 +7,7 @@ import json
 import math
 import os
 import random
+import re
 import time
 import unicodedata
 
@@ -737,7 +738,65 @@ def _normalize_text_key(value: str) -> str:
     text = unicodedata.normalize("NFKD", str(value or ""))
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
     text = text.replace("_", " ").replace("\n", " ").strip().lower()
+    text = text.replace("–", "-").replace("—", "-")
+    text = re.sub(r"[^a-z0-9\s-]", " ", text)
     return " ".join(text.split())
+
+
+def _extract_scale_number(text_key: str):
+    m = re.search(r"\b([1-5])\b", text_key or "")
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _option_match_score(left: str, right: str) -> float:
+    if not left or not right:
+        return 0.0
+    if left == right:
+        return 1.0
+
+    ln = _extract_scale_number(left)
+    rn = _extract_scale_number(right)
+    if ln is not None and rn is not None and ln == rn:
+        return 0.95
+
+    if left in right or right in left:
+        return 0.9
+
+    lset = set(left.split())
+    rset = set(right.split())
+    if not lset or not rset:
+        return 0.0
+    inter = len(lset & rset)
+    if inter == 0:
+        return 0.0
+    return inter / max(len(lset), len(rset))
+
+
+def _question_match_score(left: str, right: str) -> float:
+    if not left or not right:
+        return 0.0
+    if left == right:
+        return 1.0
+
+    l_no_prefix = re.sub(r"^cau\s*\d+\s*", "", left)
+    r_no_prefix = re.sub(r"^cau\s*\d+\s*", "", right)
+    if l_no_prefix == r_no_prefix and l_no_prefix:
+        return 0.98
+
+    if l_no_prefix in r_no_prefix or r_no_prefix in l_no_prefix:
+        if min(len(l_no_prefix), len(r_no_prefix)) >= 14:
+            return 0.92
+
+    lset = set(l_no_prefix.split())
+    rset = set(r_no_prefix.split())
+    if not lset or not rset:
+        return 0.0
+    inter = len(lset & rset)
+    if inter == 0:
+        return 0.0
+    return inter / max(len(lset), len(rset))
 
 
 def _read_ratio_rows(uploaded_file):
@@ -805,6 +864,7 @@ def _extract_ratio_mapping(uploaded_file):
         )
 
     mapping = {}
+    indexed_rows = []
     issues = []
     duplicates = 0
 
@@ -832,10 +892,28 @@ def _extract_ratio_mapping(uploaded_file):
         if key in mapping:
             duplicates += 1
         mapping[key] = weight
+        indexed_rows.append((key[0], key[1], weight))
 
     if duplicates:
         issues.append(f"Có {duplicates} dòng bị trùng, dùng giá trị ở dòng cuối.")
-    return mapping, issues
+    return {"exact": mapping, "rows": indexed_rows}, issues
+
+
+def _find_weight_fuzzy(question_key: str, option_key: str, indexed_rows: list):
+    best_score = 0.0
+    best_weight = None
+    for qk, ok, weight in indexed_rows:
+        o_score = _option_match_score(option_key, ok)
+        if o_score < 0.7:
+            continue
+        q_score = _question_match_score(question_key, qk)
+        score = (q_score * 0.7) + (o_score * 0.3)
+        if score > best_score:
+            best_score = score
+            best_weight = weight
+    if best_score >= 0.72:
+        return float(best_weight)
+    return None
 
 
 def _schedule(n, ws, we):
@@ -1144,7 +1222,9 @@ def page_configure():
     ratio_file = st.file_uploader("File tỉ lệ", type=["csv", "xlsx"], key="ratio_import_file")
     if st.button("Áp dụng tỉ lệ từ file", disabled=ratio_file is None):
         try:
-            ratio_map, issues = _extract_ratio_mapping(ratio_file)
+            ratio_data, issues = _extract_ratio_mapping(ratio_file)
+            ratio_map = ratio_data.get("exact", {})
+            indexed_rows = ratio_data.get("rows", [])
             matched_options = 0
             matched_questions = set()
 
@@ -1157,8 +1237,12 @@ def page_configure():
                 q_key = _normalize_text_key(q.get("text", ""))
                 for j, opt in enumerate(q["options"]):
                     key = (q_key, _normalize_text_key(opt))
-                    if key in ratio_map:
-                        st.session_state[f"q{i}_o{j}"] = float(ratio_map[key])
+                    weight = ratio_map.get(key)
+                    if weight is None:
+                        weight = _find_weight_fuzzy(key[0], key[1], indexed_rows)
+
+                    if weight is not None:
+                        st.session_state[f"q{i}_o{j}"] = float(weight)
                         matched_options += 1
                         matched_questions.add(i)
 
